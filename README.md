@@ -1,4 +1,4 @@
-# zDashboard
+# zdashboard
 
 > **当前版本：v0.1.1** · [路线图](docs/ROADMAP.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
 
