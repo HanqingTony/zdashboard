@@ -234,6 +234,7 @@ const redditHotProbe = async () => {
 export const SOURCES = [
   {
     id: 'hf-qwen',
+    board: 'probe',
     group: 'HuggingFace',
     label: 'Qwen 团队新模型',
     note: 'author=Qwen，按创建时间倒序',
@@ -242,6 +243,7 @@ export const SOURCES = [
   },
   {
     id: 'hf-ornith',
+    board: 'probe',
     group: 'HuggingFace',
     label: 'ornith-ai 新模型',
     note: 'author=ornith-ai（Ornith 系列）',
@@ -250,6 +252,7 @@ export const SOURCES = [
   },
   {
     id: 'hf-accio',
+    board: 'probe',
     group: 'HuggingFace',
     label: 'Accio-Lab 新模型',
     note: 'author=Accio-Lab（occamy 系列）',
@@ -258,6 +261,7 @@ export const SOURCES = [
   },
   {
     id: 'ca-minimax-h3',
+    board: 'probe',
     group: 'civarchive',
     label: 'MiniMax H3 新 LoRA',
     note: '检索 "minimax h3" → 只留 LoRA，底模含 MiniMax H3 各种写法',
@@ -266,6 +270,7 @@ export const SOURCES = [
   },
   {
     id: 'ca-qwen-image-2.1',
+    board: 'probe',
     group: 'civarchive',
     label: 'Qwen Image 2.1 新 LoRA',
     note: '检索 "qwen image 2.1" → 只留 LoRA，底模含 Qwen 2.1 / Qwen-Image-2.1',
@@ -276,6 +281,7 @@ export const SOURCES = [
   // ===== 中文热榜（均为官方站点接口；抖音/知乎用官方移动端接口） =====
   {
     id: 'hot-bilibili',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '中文热榜',
@@ -286,6 +292,7 @@ export const SOURCES = [
   },
   {
     id: 'hot-weibo',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '中文热榜',
@@ -296,6 +303,7 @@ export const SOURCES = [
   },
   {
     id: 'hot-zhihu',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '中文热榜',
@@ -306,6 +314,7 @@ export const SOURCES = [
   },
   {
     id: 'hot-douyin',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '中文热榜',
@@ -319,6 +328,7 @@ export const SOURCES = [
   // ===== 外网趋势（走本机代理；需凭据） =====
   {
     id: 'tr-youtube',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '外网趋势',
@@ -331,6 +341,7 @@ export const SOURCES = [
   },
   {
     id: 'tr-reddit',
+    board: 'topic',
     display: 10,      // 热榜：一屏扫排名，显示前 10 条
     ranked: true,
     group: '外网趋势',

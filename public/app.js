@@ -506,10 +506,39 @@ async function aggFetch(refresh, source) {
     return res.json();
 }
 
+// 板块定义：探针（新模型/新 LoRA）在上，热门话题（热榜/趋势）在下
+const AGG_BOARDS = [
+    { id: 'probe', name: '探针', sub: 'HuggingFace · civarchive —— 有没有新模型 / 新 LoRA' },
+    { id: 'topic', name: '热门话题', sub: '中文热榜 · 外网趋势 —— 头条热帖与最热趋势' },
+];
+
+// 探针卡片的上色：最新条目是今天 → 绿框；一周内 → 黄框；更早 → 默认
+function aggFreshness(items) {
+    const newest = (items || []).map(i => i.createdAt).filter(Boolean).sort().pop();
+    if (!newest) return '';
+    const d = new Date(newest);
+    if (isNaN(d)) return '';
+    const now = new Date();
+    const dayOf = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((dayOf(now) - dayOf(d)) / 86400000);
+    if (diff <= 0) return 'fresh';      // 今天
+    if (diff < 7) return 'recent';      // 一周内
+    return '';
+}
+
+// 条目日期按**本地时区**显示（与绿框/黄框的判定口径一致）
+function aggLocalDay(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso).slice(5, 10);
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function aggItemHtml(it) {
     // 紧凑单行：新标 + 标题（截断） + 日期/关键元信息靠右
     const meta = (it.meta || []).slice(0, 2).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
-    const when = it.createdAt ? String(it.createdAt).slice(5, 10) : '';
+    const when = aggLocalDay(it.createdAt);
     const rank = it.ord != null ? `<span class="agg-rank">${it.ord}</span>` : '';
     return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener" title="${escHtml((it.meta || []).join(' · '))}">
         ${rank}${it.isNew ? '<span class="agg-new">新</span>' : ''}
@@ -530,7 +559,8 @@ function aggSourceHtml(s) {
             : (s.items.length
                 ? s.items.map(aggItemHtml).join('')
                 : '<div class="agg-empty">暂无条目</div>');
-    return `<section class="agg-src">
+    const fresh = s.board === 'topic' ? '' : aggFreshness(s.items);
+    return `<section class="agg-src${fresh ? ' ' + fresh : ''}">
         <header class="agg-hd" title="${escHtml(s.note || '')}">
             <span class="agg-nm">${escHtml(s.label)}</span>${badge}
             <span class="agg-grow"></span>
@@ -543,12 +573,6 @@ function aggSourceHtml(s) {
 }
 
 function drawAgg(container, data) {
-    const groups = [];
-    for (const s of data.sources) {
-        let g = groups.find(x => x.name === s.group);
-        if (!g) { g = { name: s.group, items: [] }; groups.push(g); }
-        g.items.push(s);
-    }
     const totalNew = data.sources.reduce((n, s) => n + (s.newCount || 0), 0);
     container.innerHTML = `<div class="agg-app">
         <header class="agg-top">
@@ -557,7 +581,20 @@ function drawAgg(container, data) {
             <span class="agg-grow"></span>
             <button class="vb" onclick="refreshAgg()">全部刷新</button>
         </header>
-        ${groups.map(g => `<div class="agg-group"><h2 class="agg-gt">${escHtml(g.name)}</h2><div class="agg-grid">${g.items.map(aggSourceHtml).join('')}</div></div>`).join('')}
+        ${AGG_BOARDS.map(board => {
+            const inBoard = data.sources.filter(s => (s.board || 'probe') === board.id);
+            if (inBoard.length === 0) return '';
+            const subs = [];
+            for (const s of inBoard) {
+                let g = subs.find(x => x.name === s.group);
+                if (!g) { g = { name: s.group, items: [] }; subs.push(g); }
+                g.items.push(s);
+            }
+            return `<section class="agg-board">
+                <h2 class="agg-bt">${escHtml(board.name)}<span class="agg-bs">${escHtml(board.sub)}</span></h2>
+                ${subs.map(g => `<div class="agg-group"><h3 class="agg-gt">${escHtml(g.name)}</h3><div class="agg-grid">${g.items.map(aggSourceHtml).join('')}</div></div>`).join('')}
+            </section>`;
+        }).join('')}
     </div>`;
 }
 

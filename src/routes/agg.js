@@ -26,7 +26,7 @@ function sourceView(source, { stale }) {
   const missing = missingEnv(source);
   if (missing.length) {
     return {
-      id: source.id, group: source.group, label: source.label, note: source.note || null,
+      id: source.id, board: source.board || 'probe', group: source.group, label: source.label, note: source.note || null,
       homepage: source.homepage || null,
       status: 'unconfigured', fetchedAt: st?.fetched_at || null, error: null,
       itemCount: 0, newCount: 0, durationMs: null, stale: false,
@@ -36,6 +36,7 @@ function sourceView(source, { stale }) {
   }
   return {
     id: source.id,
+    board: source.board || 'probe',
     group: source.group,
     label: source.label,
     note: source.note || null,
