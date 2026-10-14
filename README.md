@@ -11,7 +11,8 @@
 本机各服务的导航页，也是打开 `https://192.168.0.102:18100/` 的**默认落地页**（取代原 nginx 静态导航页）。
 
 - **内容全部在 `public/nav.json`**：标题 / 分组 / 卡片 / 底部说明；增删服务只改 JSON，刷新即生效
-- 卡片字段：`name` / `url` / `desc` / `tags`（端口小标签，可选）
+- 卡片字段：`name` / `url` / `desc` / `port`（**对外入口 181xx**）/ `upstream`（**回环上游 28xxx**）/ `tags`
+  —— 卡片直接显示端口对，如 `18104 ↳28104`（规范见 zpa 仓库 `PORTS.md`）
 - 渲染：`renderNavApp()`（`public/app.js`）；样式：`style.css` 的「服务导航（黄页）模块」段
 - 窄屏自动单列（网格 `minmax(210px,1fr)` → ≤768px 单列）
 
@@ -80,7 +81,7 @@ sudo journalctl -u zdashboard -f       # 看日志
 curl -k https://192.168.0.102:18100/api/health
 ```
 
-- 监听 `127.0.0.1:3100`（仅本机，由 nginx 18100 对外）
+- 监听 `127.0.0.1:28100`（仅本机；端口规范：18xxx 对外 18100 ↔ 28xxx 上游 28100，见 zpa 仓库 `PORTS.md`）
 - 数据库 `DB_PATH=/home/tony/zdata/zdb.db`（权威库）、音频 `AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
 - 依赖已 `npm install`（含 `better-sqlite3` 原生绑定；npm 12 需 `allowScripts` 放行，见 `package.json`）
 

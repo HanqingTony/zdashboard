@@ -429,8 +429,12 @@ async function loadNavData() {
 function navItemHtml(it) {
     const tags = (it.tags || []).map(t => `<span class="ni-tag">${escHtml(t)}</span>`).join('');
     const shown = String(it.url || '').replace(/^https?:\/\//, '');
+    // 端口：对外入口（port）与回环上游（upstream）都直接显示在卡片上
+    const ports = (it.port || it.upstream)
+        ? `<span class="ni-ports">${it.port ? `<b>${escHtml(it.port)}</b>` : ''}${it.upstream ? `<i>\u21b3${escHtml(it.upstream)}</i>` : ''}</span>`
+        : '';
     return `<a class="ni" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener">
-        <span class="ni-name">${escHtml(it.name || '')}${tags}</span>
+        <span class="ni-top"><span class="ni-name">${escHtml(it.name || '')}${tags}</span>${ports}</span>
         <span class="ni-desc">${escHtml(it.desc || '')}</span>
         <span class="ni-url">${escHtml(shown)}</span>
     </a>`;

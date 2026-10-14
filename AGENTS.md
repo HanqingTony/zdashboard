@@ -16,7 +16,7 @@ Config is in `src/config.js` using `process.env.*` with defaults:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3100` | Server port |
+| `PORT` | `28100` | Server port（生产；回环上游，配对对外 18100） |
 | `HOST` | `127.0.0.1` | Bind address |
 | `DB_PATH` | `./zdb.db` | SQLite database path |
 | `AUDIO_DIR` | `./audio/` | Audio files directory |
@@ -46,17 +46,19 @@ For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `
 - 数据源：`public/nav.json`（静态文件，路由不参与）——**改导航只改这个 JSON**，不必改代码
 - 渲染：`public/app.js` 的 `renderNavApp()`；`switchApp('nav')` 是初始化默认应用
 - 样式：`public/style.css` 尾部「服务导航（黄页）模块」段
-- 部署：zmain 上由 systemd `zdashboard.service`（127.0.0.1:3100）+ nginx 18100 反代对外
+- 部署：zmain 上由 systemd `zdashboard.service`（`127.0.0.1:28100`）+ nginx **18100** 反代对外
 
 ## Frontend Quirks
 - Dual layout: portrait (`#scroller`) and landscape (`#landscape`) both exist in DOM, CSS toggles `display` via `@media (orientation: ...)`
 - Many UI items (Projects, Tools) are hardcoded HTML, not data-driven
 - Vocab app is the only functional tool; others are static placeholders
 - 服务导航（黄页）是唯一由数据文件驱动的模块（`public/nav.json`），且是默认落地应用（`switchApp('nav')`）
+- 黄页卡片字段：`name`/`url`/`desc`/`port`（**对外入口，181xx**）/`upstream`（**回环上游，28xxx**）/`tags`；端口规范见 zpa 仓库 `PORTS.md`
+- 上游端口只绑 `127.0.0.1`（生产由 systemd 设 `PORT=28100`），对外一律经 nginx 18100 —— **新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」**
 - 音频播放是遗留半成品：无文件流路由，且 `/ws` 的 `play` 载荷形状与前端不一致（v0.2.0 计划删除音频模块）
 
 ## Deploy
 - Production: `bash deploy/build_run.sh` produces a self-contained `zbuild/zdashboard.run` binary (uses Docker + c2r)
-- zmain 本机（当前实际部署）：systemd `zdashboard.service` → `127.0.0.1:3100`，nginx **18100** 反代给 LAN
-  - `DB_PATH=/home/tony/zdata/zdb.db`（权威库）、`AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
+- zmain 本机（当前实际部署）：systemd `zdashboard.service` → `127.0.0.1:28100`，nginx **18100** 反代给 LAN
+  - `PORT=28100`（回环上游，配对对外 18100）、`DB_PATH=/home/tony/zdata/zdb.db`（权威库）、`AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
   - ExecStart 用 pnpm 的 node（`/home/tony/.local/share/pnpm/bin/node`，系统 `/usr/bin/node` 是 20.x，与已编译的 better-sqlite3 绑定 ABI 不符）

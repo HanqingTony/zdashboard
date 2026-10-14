@@ -435,6 +435,21 @@
             font-family:ui-monospace,Menlo,Consolas,monospace;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
         }
+        /* 卡片顶行：名字 + 端口（右对齐） */
+        .ni .ni-top{display:flex;align-items:center;gap:6px;justify-content:space-between}
+        /* 端口对：19xxx 对外入口（强调） ↳ 28xxx 回环上游（弱化） */
+        .ni-ports{display:flex;align-items:center;gap:3px;flex-shrink:0}
+        .ni-ports b{
+            display:inline-block;padding:0 5px;border-radius:4px;
+            font-size:9.5px;font-weight:600;color:var(--ac2);
+            background:rgba(108,92,231,.18);border:1px solid rgba(108,92,231,.34);
+            font-family:ui-monospace,Menlo,Consolas,monospace;
+        }
+        .ni-ports i{
+            font-style:normal;font-size:9px;color:var(--tx3);
+            font-family:ui-monospace,Menlo,Consolas,monospace;
+        }
+
         /* 端口小标签 */
         .ni-tag{
             display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;
