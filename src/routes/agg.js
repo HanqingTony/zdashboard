@@ -31,7 +31,7 @@ function sourceView(source, { stale }) {
     newCount: st?.new_count ?? 0,
     durationMs: st?.duration_ms ?? null,
     stale,
-    items: source.status === 'idle' && !st ? [] : listItems(source.id, 12),
+    items: source.status === 'idle' && !st ? [] : listItems(source.id, 6),
   };
 }
 

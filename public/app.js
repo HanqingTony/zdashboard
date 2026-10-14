@@ -507,35 +507,34 @@ async function aggFetch(refresh, source) {
 }
 
 function aggItemHtml(it) {
-    const meta = (it.meta || []).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
-    const when = it.createdAt ? String(it.createdAt).slice(0, 10) : '';
-    return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener">
-        <span class="agg-it-top">
-            ${it.isNew ? '<span class="agg-new">新</span>' : ''}
-            <span class="agg-t">${escHtml(it.title || it.id)}</span>
-        </span>
+    // 紧凑单行：新标 + 标题（截断） + 日期/关键元信息靠右
+    const meta = (it.meta || []).slice(0, 2).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
+    const when = it.createdAt ? String(it.createdAt).slice(5, 10) : '';
+    return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener" title="${escHtml((it.meta || []).join(' · '))}">
+        ${it.isNew ? '<span class="agg-new">新</span>' : ''}
+        <span class="agg-t">${escHtml(it.title || it.id)}</span>
         <span class="agg-meta"><span class="agg-mt dim">${when}</span>${meta}</span>
     </a>`;
 }
 
 function aggSourceHtml(s) {
-    const badge = s.status === 'error' ? '<span class="agg-st err">探针失败</span>'
+    const badge = s.status === 'error' ? '<span class="agg-st err">失败</span>'
         : s.status === 'idle' ? '<span class="agg-st idle">未探测</span>'
-            : `<span class="agg-st ok">${s.newCount > 0 ? s.newCount + ' 新' : '无新'}</span>`;
+            : (s.newCount > 0 ? `<span class="agg-st new">${s.newCount} 新</span>` : '<span class="agg-st ok">无新</span>');
     const body = s.status === 'error'
-        ? `<div class="agg-err">${escHtml(s.error || '未知错误')}</div>`
+        ? `<div class="agg-err" title="${escHtml(s.error || '')}">${escHtml(s.error || '未知错误')}</div>`
         : (s.items.length
             ? s.items.map(aggItemHtml).join('')
-            : '<div class="agg-empty">暂无条目（点刷新试试）</div>');
+            : '<div class="agg-empty">暂无条目</div>');
     return `<section class="agg-src">
-        <header class="agg-hd">
+        <header class="agg-hd" title="${escHtml(s.note || '')}">
             <span class="agg-nm">${escHtml(s.label)}</span>${badge}
             <span class="agg-grow"></span>
-            <span class="agg-ts">${aggTimeAgo(s.fetchedAt)}${s.durationMs != null ? ' · ' + s.durationMs + 'ms' : ''}</span>
-            <button class="vb" onclick="refreshAgg('${s.id}')">刷新</button>
+            <span class="agg-ts">${aggTimeAgo(s.fetchedAt)}</span>
+            <button class="agg-rf" onclick="refreshAgg('${s.id}')" title="只刷新这一项">&#x21BB;</button>
         </header>
-        ${s.note ? `<div class="agg-note">${escHtml(s.note)}</div>` : ''}
         <div class="agg-list">${body}</div>
+        ${s.itemCount > (s.items.length) ? `<div class="agg-more">共 ${s.itemCount} 条，显示最新 ${s.items.length}</div>` : ''}
     </section>`;
 }
 
@@ -554,7 +553,7 @@ function drawAgg(container, data) {
             <span class="agg-grow"></span>
             <button class="vb" onclick="refreshAgg()">全部刷新</button>
         </header>
-        ${groups.map(g => `<div class="agg-group"><h2 class="agg-gt">${escHtml(g.name)}</h2>${g.items.map(aggSourceHtml).join('')}</div>`).join('')}
+        ${groups.map(g => `<div class="agg-group"><h2 class="agg-gt">${escHtml(g.name)}</h2><div class="agg-grid">${g.items.map(aggSourceHtml).join('')}</div></div>`).join('')}
     </div>`;
 }
 
@@ -589,7 +588,7 @@ async function refreshAgg(source) {
     if (aggState.busy) return;
     aggState.busy = true;
     const screen = getActiveScreen();
-    screen.querySelectorAll('.vb').forEach(b => { b.disabled = true; b.textContent = '刷新中…'; });
+    screen.querySelectorAll('.agg-rf').forEach(b => { b.disabled = true; b.textContent = '…'; });
     try {
         const data = await aggFetch(true, source || null);
         drawAgg(screen, data);
