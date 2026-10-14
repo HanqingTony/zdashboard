@@ -1,10 +1,24 @@
 # zdashboard
 
-> **当前版本：v0.1.2** · [路线图](docs/ROADMAP.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
+> **当前版本：v0.1.3** · [路线图](docs/ROADMAP.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
 
 个人多功能仪表盘，深色主题，横竖屏自适应，单文件 SPA。
 
 ## 功能模块
+
+### 信息聚合
+
+Tools 里的 **📡 信息聚合**：每个关注对象一个**独立探针**，结果落库并标注「新」条目——打开即知「有没有新东西」。
+
+| 源 | 关注点 |
+|---|---|
+| HuggingFace `Qwen` / `ornith-ai` / `Accio-Lab` | 是否发了新模型 |
+| civarchive `minimax h3` / `qwen image 2.1` | 是否出了新 LoRA（按底模归一化匹配） |
+
+- 「新」= 本地库里**首次见到**（`agg_item.first_seen == last_seen`）；第一次探测全部为「新」，之后只有真新增才算
+- 缓存 30 分钟；进入页面若过期/未探测会自动跑一次（只自动一次）
+- 某源超时/改版只影响它自己（卡片显示 `探针失败: …`），其余照常
+- 加源：在 `src/agg/sources.js` 加一条 `{ id, group, label, note, homepage, probe }` 即可，前端自动多一张卡
 
 ### 服务导航（黄页）
 
@@ -119,10 +133,14 @@ zDashboard/
 ├── src/
 │   ├── config.js       # 配置（环境变量 > config.json > 默认值）
 │   ├── db.js           # SQLite 初始化
+│   ├── agg/
+│   │   ├── sources.js  # 信息聚合：各源定义与探针（每源独立逻辑）
+│   │   └── store.js    # 信息聚合：落库 + 「新」判定
 │   └── routes/
 │       ├── audio.js    # 音频播放路由
 │       ├── articles.js # 文章管理路由
-│       └── vocab.js    # 词汇学习路由
+│       ├── vocab.js    # 词汇学习路由
+│       └── agg.js      # 信息聚合路由
 ├── public/
 │   ├── index.html      # 单文件 SPA 前端
 │   ├── nav.json        # 服务导航（黄页）数据源

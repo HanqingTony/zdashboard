@@ -138,6 +138,10 @@ function switchApp(app) {
         screen.style.background = 'var(--bg)';
         screen.style.border = '1px solid var(--bdr)';
         renderNavApp(screen);
+    } else if (app === 'agg') {
+        screen.style.background = 'var(--bg)';
+        screen.style.border = '1px solid var(--bdr)';
+        renderAggApp(screen);
     } else if (app === null) {
         // 空状态
         screen.style.background = '#000';
@@ -470,6 +474,134 @@ async function renderNavApp(container) {
         </div>`;
 }
 
+// ========== 信息聚合模块 ==========
+// 每条信息源在后端各有独立探针（src/agg/sources.js）；前端只负责展示 + 触发刷新。
+// “新”= 该条目在本地库里首次出现（后端 agg_item 表的 first_seen）。
+const aggState = { autoRefreshed: false, busy: false };
+
+function updateAggBadge(n) {
+    const txt = n > 0 ? String(n) : '';
+    ['badgeAgg', 'badgeAggL'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    });
+}
+
+function aggTimeAgo(iso) {
+    if (!iso) return '从未';
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return '刚刚';
+    if (s < 3600) return `${Math.floor(s / 60)} 分钟前`;
+    if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
+    return `${Math.floor(s / 86400)} 天前`;
+}
+
+async function aggFetch(refresh, source) {
+    const qs = source ? `?source=${encodeURIComponent(source)}` : '';
+    const res = await fetch(`/api/agg${refresh ? '/refresh' : ''}${qs}`, {
+        method: refresh ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+}
+
+function aggItemHtml(it) {
+    const meta = (it.meta || []).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
+    const when = it.createdAt ? String(it.createdAt).slice(0, 10) : '';
+    return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener">
+        <span class="agg-it-top">
+            ${it.isNew ? '<span class="agg-new">新</span>' : ''}
+            <span class="agg-t">${escHtml(it.title || it.id)}</span>
+        </span>
+        <span class="agg-meta"><span class="agg-mt dim">${when}</span>${meta}</span>
+    </a>`;
+}
+
+function aggSourceHtml(s) {
+    const badge = s.status === 'error' ? '<span class="agg-st err">探针失败</span>'
+        : s.status === 'idle' ? '<span class="agg-st idle">未探测</span>'
+            : `<span class="agg-st ok">${s.newCount > 0 ? s.newCount + ' 新' : '无新'}</span>`;
+    const body = s.status === 'error'
+        ? `<div class="agg-err">${escHtml(s.error || '未知错误')}</div>`
+        : (s.items.length
+            ? s.items.map(aggItemHtml).join('')
+            : '<div class="agg-empty">暂无条目（点刷新试试）</div>');
+    return `<section class="agg-src">
+        <header class="agg-hd">
+            <span class="agg-nm">${escHtml(s.label)}</span>${badge}
+            <span class="agg-grow"></span>
+            <span class="agg-ts">${aggTimeAgo(s.fetchedAt)}${s.durationMs != null ? ' · ' + s.durationMs + 'ms' : ''}</span>
+            <button class="vb" onclick="refreshAgg('${s.id}')">刷新</button>
+        </header>
+        ${s.note ? `<div class="agg-note">${escHtml(s.note)}</div>` : ''}
+        <div class="agg-list">${body}</div>
+    </section>`;
+}
+
+function drawAgg(container, data) {
+    const groups = [];
+    for (const s of data.sources) {
+        let g = groups.find(x => x.name === s.group);
+        if (!g) { g = { name: s.group, items: [] }; groups.push(g); }
+        g.items.push(s);
+    }
+    const totalNew = data.sources.reduce((n, s) => n + (s.newCount || 0), 0);
+    container.innerHTML = `<div class="agg-app">
+        <header class="agg-top">
+            <span class="agg-title">&#x1F4E1; 信息聚合</span>
+            <span class="agg-sub">${totalNew > 0 ? totalNew + ' 条新' : '暂无新条目'} · 上次刷新 ${aggTimeAgo(data.lastRefreshAt)}</span>
+            <span class="agg-grow"></span>
+            <button class="vb" onclick="refreshAgg()">全部刷新</button>
+        </header>
+        ${groups.map(g => `<div class="agg-group"><h2 class="agg-gt">${escHtml(g.name)}</h2>${g.items.map(aggSourceHtml).join('')}</div>`).join('')}
+    </div>`;
+}
+
+async function renderAggApp(container) {
+    container.innerHTML = '<div class="agg-app"><div class="agg-loading">载入信息聚合…</div></div>';
+    let data;
+    try {
+        data = await aggFetch(false);
+    } catch (e) {
+        container.innerHTML = `<div class="agg-app"><div class="agg-loading">读取失败：${escHtml(e.message)}</div></div>`;
+        return;
+    }
+    if (currentApp !== 'agg') return;
+    drawAgg(container, data);
+    updateAggBadge(data.sources.reduce((n, s) => n + (s.newCount || 0), 0));
+
+    // 首次进入且数据过期/未探测 → 自动跑一次（只自动一次，避免反复打外部站点）
+    const need = data.sources.some(s => s.stale || s.status === 'idle');
+    if (need && !aggState.autoRefreshed) {
+        aggState.autoRefreshed = true;
+        try {
+            const fresh = await aggFetch(true);
+            if (currentApp === 'agg') {
+                drawAgg(container, fresh);
+                updateAggBadge(fresh.sources.reduce((n, s) => n + (s.newCount || 0), 0));
+            }
+        } catch (e) { /* 自动刷新失败就保留缓存视图 */ }
+    }
+}
+
+async function refreshAgg(source) {
+    if (aggState.busy) return;
+    aggState.busy = true;
+    const screen = getActiveScreen();
+    screen.querySelectorAll('.vb').forEach(b => { b.disabled = true; b.textContent = '刷新中…'; });
+    try {
+        const data = await aggFetch(true, source || null);
+        drawAgg(screen, data);
+        updateAggBadge(data.sources.reduce((n, s) => n + (s.newCount || 0), 0));
+    } catch (e) {
+        alert('刷新失败: ' + e.message);
+    } finally {
+        aggState.busy = false;
+        layout();
+    }
+}
+
 // ========== 工具函数 ==========
 // HTML 转义
 function escHtml(str) {
@@ -589,6 +721,9 @@ scroller.addEventListener('scroll',()=>{
 // 默认落地页：服务导航（黄页）——18100 打开即见
 switchApp('nav');
 layout();
+
+// Tools 角标：信息聚合的「新条目」数（本地接口，很快；失败静默）
+aggFetch(false).then(d => updateAggBadge(d.sources.reduce((n, s) => n + (s.newCount || 0), 0))).catch(() => {});
 window.addEventListener('resize',()=>{
     panelCollapsed=false;savedPanelH=0;
     panelP.classList.remove('collapsed');

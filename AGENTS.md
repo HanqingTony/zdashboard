@@ -40,7 +40,15 @@ For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `
 | `src/routes/audio.js` | `/api/audio`, `/api/play`, `/api/skip`, `/api/clear` | Audio file browser + playback queue |
 | `src/routes/articles.js` | `/api/articles` | Article CRUD with word extraction |
 | `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | Word learning status management |
+| `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh` | 信息聚合：读缓存 / 跑探针（每源独立失败隔离） |
 | `server.js` | `/api/health` | 探活：`{ok,service,version,uptime}`（在 server.js 内联，不单独建文件） |
+
+## 信息聚合
+- 每源一段探针逻辑：`src/agg/sources.js`（HF 组织最新模型 / civarchive 按底模筛 LoRA）；加源 = 加一条 `SOURCES` 条目
+- 落库与「新」判定：`src/agg/store.js`（`agg_item` 表：`first_seen == last_seen` 即「新」）；写完 `wal_checkpoint(TRUNCATE)`
+- 路由：`src/routes/agg.js`（TTL 30 分钟、同源并发去重、失败只影响自己）
+- 网络约定：**只走直连**（`civarchive.com`、`hf-mirror.com` 实测直连可用；`huggingface.co`/`civitai.com` 直连不通）→ 单元无需代理环境变量
+- 前端：`public/app.js` 的 `renderAggApp()` / `refreshAgg()`；Tools 角标 `#badgeAgg(L)` 显示新条目数
 
 ## 服务导航（黄页）
 - 数据源：`public/nav.json`（静态文件，路由不参与）——**改导航只改这个 JSON**，不必改代码
