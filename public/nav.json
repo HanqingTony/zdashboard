@@ -1,0 +1,29 @@
+{
+  "title": "zmain 服务导航",
+  "subtitle": "192.168.0.102 · 本页由 zDashboard 提供，TLS 由本地 mkcert CA 签发",
+  "groups": [
+    {
+      "name": "对外（LAN 可达）",
+      "note": "181xx / 旧端口",
+      "items": [
+        { "name": "dsh web", "url": "https://192.168.0.102:18110/", "desc": "DeepSeek Harness · nginx 18110", "tags": ["18110"] },
+        { "name": "dsh web（旧入口）", "url": "https://192.168.0.102:3080/", "desc": "DeepSeek Harness · 直连 3080", "tags": ["3080"] },
+        { "name": "MinIO 控制台", "url": "https://192.168.0.102:18101/", "desc": "对象存储", "tags": ["18101"] },
+        { "name": "searxng", "url": "https://192.168.0.102:18102/", "desc": "元搜索", "tags": ["18102"] },
+        { "name": "anm MCP", "url": "https://192.168.0.102:18103/mcp", "desc": "笔记 MCP（/mcp · SSE）", "tags": ["18103"] },
+        { "name": "LLM API", "url": "http://192.168.0.102:8080/", "desc": "llama-server · OpenAI 兼容", "tags": ["8080"] },
+        { "name": "alooplayer", "url": "http://192.168.0.102:18190/", "desc": "独立 nginx 实例 :18190", "tags": ["18190"] }
+      ]
+    },
+    {
+      "name": "仅本机",
+      "note": "127.0.0.1 · 需从本机打开本页",
+      "items": [
+        { "name": "dsh a2a", "url": "https://127.0.0.1:12700/", "desc": "12700 → :41241", "tags": ["12700"] },
+        { "name": "anm-core", "url": "https://127.0.0.1:12701/", "desc": "12701 → :17373", "tags": ["12701"] },
+        { "name": "cloudflared 指标", "url": "https://127.0.0.1:12702/metrics", "desc": "12702 → :20241/metrics", "tags": ["12702"] }
+      ]
+    }
+  ],
+  "footer": "端口约定：181xx 对外 · 127xx 对内。改后端见 /etc/nginx/conf.d/zports-*.conf（新增服务：加一个 server 块 + reload）。导航内容即本文件 public/nav.json，改完刷新页面即生效。"
+}

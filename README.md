@@ -1,10 +1,19 @@
 # zdashboard
 
-> **当前版本：v0.1.1** · [路线图](docs/ROADMAP.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
+> **当前版本：v0.1.2** · [路线图](docs/ROADMAP.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
 
 个人多功能仪表盘，深色主题，横竖屏自适应，单文件 SPA。
 
 ## 功能模块
+
+### 服务导航（黄页）
+
+本机各服务的导航页，也是打开 `https://192.168.0.102:18100/` 的**默认落地页**（取代原 nginx 静态导航页）。
+
+- **内容全部在 `public/nav.json`**：标题 / 分组 / 卡片 / 底部说明；增删服务只改 JSON，刷新即生效
+- 卡片字段：`name` / `url` / `desc` / `tags`（端口小标签，可选）
+- 渲染：`renderNavApp()`（`public/app.js`）；样式：`style.css` 的「服务导航（黄页）模块」段
+- 窄屏自动单列（网格 `minmax(210px,1fr)` → ≤768px 单列）
 
 ### 音频播放器
 
@@ -60,7 +69,22 @@
 
 ## 部署
 
-### .run 便携部署（推荐）
+### zmain 本机常驻部署（当前生产）
+
+```bash
+# systemd 单元：/etc/systemd/system/zdashboard.service
+sudo systemctl restart zdashboard      # 重启
+sudo journalctl -u zdashboard -f       # 看日志
+
+# nginx 18100 反代到本服务（/etc/nginx/conf.d/zports-external.conf）
+curl -k https://192.168.0.102:18100/api/health
+```
+
+- 监听 `127.0.0.1:3100`（仅本机，由 nginx 18100 对外）
+- 数据库 `DB_PATH=/home/tony/zdata/zdb.db`（权威库）、音频 `AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
+- 依赖已 `npm install`（含 `better-sqlite3` 原生绑定；npm 12 需 `allowScripts` 放行，见 `package.json`）
+
+### .run 便携部署
 
 ```bash
 # 构建
@@ -99,7 +123,10 @@ zDashboard/
 │       ├── articles.js # 文章管理路由
 │       └── vocab.js    # 词汇学习路由
 ├── public/
-│   └── index.html      # 单文件 SPA 前端
+│   ├── index.html      # 单文件 SPA 前端
+│   ├── nav.json        # 服务导航（黄页）数据源
+│   ├── app.js
+│   └── style.css
 ├── deploy/             # Docker 部署
 │   ├── Dockerfile
 │   ├── docker-compose.yml  # c2r 打包 & compose 部署共用

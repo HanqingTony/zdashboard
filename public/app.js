@@ -134,6 +134,10 @@ function switchApp(app) {
         screen.style.background = 'var(--bg)';
         screen.style.border = '1px solid rgba(108,92,231,.35)';
         renderVocabApp(screen);
+    } else if (app === 'nav') {
+        screen.style.background = 'var(--bg)';
+        screen.style.border = '1px solid var(--bdr)';
+        renderNavApp(screen);
     } else if (app === null) {
         // 空状态
         screen.style.background = '#000';
@@ -409,6 +413,59 @@ async function onWordClick(el, event) {
     } catch(e) { console.warn('[vocab] 状态更新失败:', e); }
 }
 
+// ========== 服务导航（黄页）模块 ==========
+// 数据源：public/nav.json（纯静态；增删服务只改那个文件，不必动代码）
+const NAV_URL = 'nav.json';
+let navData = null;
+
+async function loadNavData() {
+    if (navData) return navData;
+    const res = await fetch(NAV_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    navData = await res.json();
+    return navData;
+}
+
+function navItemHtml(it) {
+    const tags = (it.tags || []).map(t => `<span class="ni-tag">${escHtml(t)}</span>`).join('');
+    const shown = String(it.url || '').replace(/^https?:\/\//, '');
+    return `<a class="ni" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener">
+        <span class="ni-name">${escHtml(it.name || '')}${tags}</span>
+        <span class="ni-desc">${escHtml(it.desc || '')}</span>
+        <span class="ni-url">${escHtml(shown)}</span>
+    </a>`;
+}
+
+// 渲染服务导航（黄页）：本分组卡片 + 底部端口约定
+async function renderNavApp(container) {
+    container.innerHTML = '<div class="nav-app"><div class="nav-loading">载入服务导航…</div></div>';
+
+    let data;
+    try {
+        data = await loadNavData();
+    } catch (e) {
+        container.innerHTML = `<div class="nav-app"><div class="nav-loading">加载 nav.json 失败：${escHtml(e.message)}</div></div>`;
+        return;
+    }
+    if (currentApp !== 'nav') return;   // 期间已切到别的应用，丢弃过期渲染
+
+    const groups = (data.groups || []).map(g => `
+        <section class="nav-group">
+            <h2 class="ng-title">${escHtml(g.name || '')}${g.note ? `<span class="ng-note">${escHtml(g.note)}</span>` : ''}</h2>
+            <div class="ng-grid">${(g.items || []).map(navItemHtml).join('')}</div>
+        </section>`).join('');
+
+    container.innerHTML = `
+        <div class="nav-app">
+            <header class="nav-head">
+                <h1>${escHtml(data.title || '服务导航')}</h1>
+                ${data.subtitle ? `<p class="nav-sub">${escHtml(data.subtitle)}</p>` : ''}
+            </header>
+            ${groups}
+            ${data.footer ? `<footer class="nav-foot">${escHtml(data.footer)}</footer>` : ''}
+        </div>`;
+}
+
 // ========== 工具函数 ==========
 // HTML 转义
 function escHtml(str) {
@@ -525,6 +582,8 @@ scroller.addEventListener('scroll',()=>{
 });
 
 // ========== 初始化 ==========
+// 默认落地页：服务导航（黄页）——18100 打开即见
+switchApp('nav');
 layout();
 window.addEventListener('resize',()=>{
     panelCollapsed=false;savedPanelH=0;

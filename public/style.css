@@ -391,3 +391,64 @@
             border-color:var(--vocab-unknown-border);
         }
         /* 非单词字符（标点、空格、换行等） */
+
+        /* ========== 服务导航（黄页）模块 ========== */
+
+        /* 模块容器：填满主显示区，自身滚动 */
+        .nav-app{
+            height:100%;overflow-y:auto;
+            padding:18px 20px 26px;
+        }
+        .nav-app::-webkit-scrollbar{width:4px}
+        .nav-app::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+
+        .nav-head h1{font-size:17px;font-weight:600;letter-spacing:-.2px}
+        .nav-head .nav-sub{font-size:10px;color:var(--tx3);margin-top:3px}
+
+        .nav-group{margin-top:20px}
+        .ng-title{
+            font-size:10px;font-weight:600;color:var(--tx3);
+            text-transform:uppercase;letter-spacing:.8px;
+            display:flex;align-items:baseline;gap:6px;margin-bottom:8px;
+        }
+        .ng-title .ng-note{
+            font-size:9px;font-weight:400;letter-spacing:0;
+            text-transform:none;opacity:.75;
+        }
+
+        /* 卡片网格：窄屏自动降为单列 */
+        .ng-grid{
+            display:grid;gap:8px;
+            grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+        }
+        .ni{
+            display:block;padding:9px 11px;border-radius:8px;
+            background:var(--bg3);border:1px solid var(--bdr);
+            text-decoration:none;color:inherit;
+            transition:border-color .15s,background .15s,transform .15s;
+        }
+        .ni:hover{border-color:var(--ac);background:var(--bg2);transform:translateY(-1px)}
+        .ni .ni-name{display:block;font-size:12px;font-weight:600;color:var(--tx)}
+        .ni .ni-desc{display:block;font-size:10px;color:var(--tx2);margin-top:2px}
+        .ni .ni-url{
+            display:block;font-size:9px;color:var(--tx3);margin-top:4px;
+            font-family:ui-monospace,Menlo,Consolas,monospace;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+        }
+        /* 端口小标签 */
+        .ni-tag{
+            display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;
+            font-size:9px;font-weight:500;color:var(--ac2);
+            background:rgba(108,92,231,.14);border:1px solid rgba(108,92,231,.28);
+            vertical-align:1px;
+        }
+        .nav-loading{padding:20px;font-size:11px;color:var(--tx3);text-align:center}
+        .nav-foot{
+            margin-top:22px;padding-top:10px;
+            border-top:1px solid var(--bdr);
+            font-size:9.5px;line-height:1.7;color:var(--tx3);
+        }
+        @media (max-width:768px){
+            .nav-app{padding:14px 12px 22px}
+            .ng-grid{grid-template-columns:1fr}
+        }
