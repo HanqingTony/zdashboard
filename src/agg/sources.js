@@ -13,10 +13,16 @@ const CA_BASE = 'https://civarchive.com';       // Civitai 存档站，直连可
 
 // 出境站点（红迪 / YouTube）走本机代理；国内平台直连（不绕代理）
 export const PROXY_URL = process.env.AGG_PROXY || 'http://127.0.0.1:12809';
+let _undici = null;
+async function undiciMod() {
+  if (!_undici) _undici = await import('undici');
+  return _undici;
+}
+
 let _proxyAgent = null;
 async function proxyAgent() {
   if (!_proxyAgent) {
-    const { ProxyAgent } = await import('undici');
+    const { ProxyAgent } = await undiciMod();
     _proxyAgent = new ProxyAgent(PROXY_URL);
   }
   return _proxyAgent;
@@ -24,18 +30,48 @@ async function proxyAgent() {
 
 const UA = 'zdashboard-info-aggregator/1.0 (+local)';
 
-async function getJson(url, { timeoutMs = 15000, headers = {}, proxy = false, method = 'GET', body = undefined } = {}) {
+async function getJson(url, opts = {}) {
+  const txt = await fetchText(url, opts);
+  try { return JSON.parse(txt); }
+  catch { throw new Error('返回不是 JSON（接口变了？）'); }
+}
+
+// proxyMode: 'off'（默认，直连）| 'on'（总是走本机代理）| 'auto'（先直连，失败再走代理）
+async function fetchText(url, { timeoutMs = 15000, headers = {}, proxyMode = 'off', method = 'GET', body = undefined } = {}) {
   const opts = {
     method,
-    headers: { 'User-Agent': UA, 'Accept': 'application/json', ...headers },
+    headers: { 'User-Agent': UA, 'Accept': '*/*', ...headers },
     signal: AbortSignal.timeout(timeoutMs),
   };
   if (body !== undefined) opts.body = body;
-  if (proxy) opts.dispatcher = await proxyAgent();          // 不走系统代理 env，显式走本机代理
-  const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  return res.json();
+  const tries = proxyMode === 'on' ? [true] : proxyMode === 'auto' ? [false, true] : [false];
+  let lastErr;
+  for (const useProxy of tries) {
+    try {
+      let res;
+      if (useProxy) {
+        // 坑：Node 内置 fetch 与 npm 装的 undici 版本不同，把外装 ProxyAgent 交给内置 fetch 会报
+        // "invalid onRequestStart method"（fetch failed）→ 代理请求一律用 undici 自带的 fetch，保持同版本
+        const u = await undiciMod();
+        res = await u.fetch(url, { ...opts, dispatcher: await proxyAgent() });
+      } else {
+        res = await fetch(url, opts);
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
 }
+
+// RSS/Atom 解析（fast-xml-parser）
+let _xmlParser = null;
+async function parseXml(txt) {
+  const { XMLParser } = await import('fast-xml-parser');
+  if (!_xmlParser) _xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@' });
+  return _xmlParser.parse(txt);
+}
+function asArray(x) { return x == null ? [] : Array.isArray(x) ? x : [x]; }
 
 function daysAgo(iso) {
   if (!iso) return null;
@@ -190,7 +226,7 @@ const youtubeTrendingProbe = async () => {
   const key = process.env.YOUTUBE_API_KEY;
   const url = 'https://www.googleapis.com/youtube/v3/videos'
     + `?part=snippet,statistics&chart=mostPopular&maxResults=15&regionCode=US&key=${encodeURIComponent(key)}`;
-  const d = await getJson(url, { proxy: true, timeoutMs: 20000 });
+  const d = await getJson(url, { proxyMode: 'on', timeoutMs: 20000 });
   const rows = d?.items || [];
   return {
     items: hotItemsMapper(r => ({
@@ -202,19 +238,45 @@ const youtubeTrendingProbe = async () => {
   };
 };
 
-// Reddit 热门（**官方 OAuth API**，免费注册 app；需 client_id/secret，走代理）
-const redditHotProbe = async () => {
+// ---------- 外网备选（免 key / 官方 feed；经实测筛选，见 docs/v0.1.5.md） ----------
+
+// Google Trends 每日热搜（**官方 RSS**，免 key；X trends 的首选替代指标）
+function gTrendsProbe(geo = 'US', hl = 'en-US') {
+  return async () => {
+    const txt = await fetchText(`https://trends.google.com/trending/rss?geo=${geo}&hl=${hl}`, { proxyMode: 'auto', timeoutMs: 20000 });
+    const doc = await parseXml(txt);
+    const rows = asArray(doc?.rss?.channel?.item);
+    if (!rows.length) throw new Error('RSS 里没有 item');
+    return {
+      items: hotItemsMapper(r => {
+        const title = String(r.title || '').trim();
+        const traffic = r['ht:approx_traffic'] ? `${r['ht:approx_traffic']} 搜索` : null;
+        const src = r['ht:picture_source'] || null;
+        return {
+          id: title,
+          title,
+          url: `https://trends.google.com/trends/explore?geo=${geo}&q=${encodeURIComponent(title)}`,
+          meta: [traffic, src].filter(Boolean),
+        };
+      })(rows),
+    };
+  };
+}
+
+// Reddit 热门：**有凭据走官方 OAuth（可靠）**，无凭据退回官方 RSS（***可能 429 限流***）
+// 实测：免认证 `…/hot.json` 直连 000 / 走代理 403；官方 RSS 可读但被限流（429）→ OAuth 才是可靠路径
+const redditOauthProbe = async () => {
   const id = process.env.REDDIT_CLIENT_ID, secret = process.env.REDDIT_CLIENT_SECRET;
   const basic = Buffer.from(`${id}:${secret}`).toString('base64');
   const tok = await getJson('https://www.reddit.com/api/v1/access_token', {
-    method: 'POST', proxy: true, timeoutMs: 20000,
+    method: 'POST', proxyMode: 'on', timeoutMs: 20000,
     headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials',
   });
   const access = tok?.access_token;
   if (!access) throw new Error('未拿到 access_token（检查 client_id/secret）');
-  const d = await getJson('https://oauth.reddit.com/r/popular/hot?limit=15&raw_json=1', {
-    proxy: true, timeoutMs: 20000, headers: { Authorization: `Bearer ${access}` },
+  const d = await getJson('https://oauth.reddit.com/r/popular/hot?limit=25&raw_json=1', {
+    proxyMode: 'on', timeoutMs: 20000, headers: { Authorization: `Bearer ${access}` },
   });
   const rows = d?.data?.children || [];
   return {
@@ -227,6 +289,129 @@ const redditHotProbe = async () => {
         meta: [`r/${r.subreddit || '?'}`, r.ups != null ? `↑${r.ups}` : null, r.num_comments != null ? `💬${r.num_comments}` : null].filter(Boolean),
       };
     })(rows),
+  };
+};
+
+function redditRssProbe(sub = 'popular', sort = 'hot') {
+  return async () => {
+    const url = `https://www.reddit.com/r/${sub}/${sort}/.rss?limit=25`;
+    let txt;
+    try {
+      txt = await fetchText(url, { proxyMode: 'on', timeoutMs: 20000 });
+    } catch (e) {
+      if (!String(e.message).includes('429')) throw e;
+      await new Promise(r => setTimeout(r, 3000));            // 被限流 → 等 3s 重试一次
+      txt = await fetchText(url, { proxyMode: 'on', timeoutMs: 20000 });
+    }
+    const doc = await parseXml(txt);
+    const rows = asArray(doc?.feed?.entry);
+    if (!rows.length) throw new Error('feed 里没有 entry');
+    return {
+      items: hotItemsMapper(e => {
+        const link = typeof e.link === 'object' ? (asArray(e.link)[0]?.['@href'] || '') : (e.link || '');
+        const cat = asArray(e.category)[0];
+        const label = cat?.['@label'] || (cat?.['@term'] ? `r/${cat['@term']}` : null);
+        return {
+          id: e.id || link,
+          title: String(e.title || '').trim(),
+          url: link || `https://www.reddit.com/r/${sub}/`,
+          meta: [label, e.updated ? `${Math.max(0, Math.round((Date.now() - new Date(e.updated).getTime()) / 3600000))} 小时前` : null].filter(Boolean),
+        };
+      })(rows),
+    };
+  };
+}
+
+const redditProbe = async () => {
+  const hasCreds = !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET);
+  return hasCreds ? redditOauthProbe() : redditRssProbe('popular')();
+};
+
+// Bluesky 趋势话题（**官方公共 API**，免 key；推特的同构替代）
+const blueskyTrendsProbe = async () => {
+  const d = await getJson('https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrendingTopics', { proxyMode: 'on', timeoutMs: 20000 });
+  const rows = d?.topics || [];
+  if (!rows.length) throw new Error('没有 topics');
+  return {
+    items: hotItemsMapper(t => ({
+      id: t.topic || t.displayName || t.link,
+      title: t.displayName || t.topic || '',
+      url: t.link ? `https://bsky.app${t.link}` : 'https://bsky.app/explore',
+      meta: [(t.description || '').slice(0, 46)].filter(Boolean),
+    }))(rows),
+  };
+};
+
+// Mastodon 趋势标签（**官方公共 API**，免 key）
+const mastodonTrendsProbe = async () => {
+  const d = await getJson('https://mastodon.social/api/v1/trends/tags?limit=10', { proxyMode: 'on', timeoutMs: 20000 });
+  const rows = Array.isArray(d) ? d : [];
+  if (!rows.length) throw new Error('没有趋势标签');
+  return {
+    items: hotItemsMapper(t => ({
+      id: t.name,
+      title: `#${t.name}`,
+      url: t.url || `https://mastodon.social/tags/${t.name}`,
+      meta: [t.history?.[0]?.uses != null ? `${t.history[0].uses} 帖/今日` : null,
+        t.history?.[0]?.accounts != null ? `${t.history[0].accounts} 人` : null].filter(Boolean),
+    }))(rows),
+  };
+};
+
+// Hacker News 首页头条（**官方 Algolia API**，免 key）
+const hnFrontPageProbe = async () => {
+  const d = await getJson('https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=15', { proxyMode: 'auto' });
+  const rows = d?.hits || [];
+  return {
+    items: hotItemsMapper(h => ({
+      id: String(h.objectID),
+      title: h.title || h.story_title || '',
+      url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+      meta: [h.points != null ? `${h.points} 分` : null, h.num_comments != null ? `${h.num_comments} 评论` : null].filter(Boolean),
+    }))(rows),
+  };
+};
+
+// 维基百科当日最热条目（**官方 pageviews API**，免 key；“世界在看什么”的稳定指标）
+// 注意：pageviews 数据有 1–3 天延迟，当天查不到会 404 → 向前回退最多 4 天取最近可用的一天
+const wikiTopProbe = async () => {
+  let d = null, usedDay = null, lastErr = null;
+  for (let back = 1; back <= 4; back++) {
+    const y = new Date(Date.now() - back * 86400000);
+    const day = `${y.getFullYear()}/${String(y.getMonth() + 1).padStart(2, '0')}/${String(y.getDate()).padStart(2, '0')}`;
+    try {
+      d = await getJson(`https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${day}`,
+        { proxyMode: 'auto', timeoutMs: 20000 });
+      usedDay = day; break;
+    } catch (e) { lastErr = e; }
+  }
+  if (!d) throw lastErr || new Error('取不到 pageviews 数据');
+  const rows = (d?.items?.[0]?.articles || [])
+    .filter(a => a.article && !a.article.startsWith('Special:') && a.article !== 'Main_Page')
+    .slice(0, 12);
+  return {
+    items: hotItemsMapper(a => ({
+      id: a.article,
+      title: a.article.replace(/_/g, ' '),
+      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(a.article)}`,
+      meta: [`${Number(a.views).toLocaleString()} 次浏览`, usedDay].filter(Boolean),
+    }))(rows),
+  };
+};
+
+// GitHub 新星仓库（**官方 search API**，免 key：未认证 10 次/分钟）
+const githubTrendingProbe = async () => {
+  const since = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const d = await getJson(`https://api.github.com/search/repositories?q=created:>${since}&sort=stars&order=desc&per_page=10`,
+    { proxyMode: 'auto', timeoutMs: 20000, headers: { Accept: 'application/vnd.github+json' } });
+  const rows = d?.items || [];
+  return {
+    items: hotItemsMapper(r => ({
+      id: r.full_name,
+      title: r.full_name,
+      url: r.html_url,
+      meta: [`★${Number(r.stargazers_count || 0).toLocaleString()}`, r.language, (r.description || '').slice(0, 40)].filter(Boolean),
+    }))(rows),
   };
 };
 
@@ -327,32 +512,96 @@ export const SOURCES = [
 
   // ===== 外网趋势（走本机代理；需凭据） =====
   {
-    id: 'tr-youtube',
+    id: 'tr-gtrends',
     board: 'topic',
-    display: 10,      // 热榜：一屏扫排名，显示前 10 条
+    display: 10,
     ranked: true,
     group: '外网趋势',
-    label: 'YouTube 最热趋势',
-    note: '官方 Data API v3（免费配额 10k/日），需 YOUTUBE_API_KEY',
-    homepage: 'https://www.youtube.com/feed/trending',
-    requires: { env: ['YOUTUBE_API_KEY'], hint: 'Google Cloud 控制台建项目 → 启用 YouTube Data API v3 → 建 API key；写进 /home/tony/zdata/zdashboard/agg.env' },
-    proxy: true,
-    probe: youtubeTrendingProbe,
+    label: 'Google Trends 热搜 (US)',
+    note: '官方 RSS，免 key —— X trends 的首选替代指标',
+    homepage: 'https://trends.google.com/trending?geo=US',
+    probe: gTrendsProbe('US'),
   },
   {
     id: 'tr-reddit',
     board: 'topic',
-    display: 10,      // 热榜：一屏扫排名，显示前 10 条
+    display: 10,
     ranked: true,
     group: '外网趋势',
-    label: 'Reddit 热门',
-    note: '官方 OAuth API（免费注册 app，额度 100 QPM），需 REDDIT_CLIENT_ID/SECRET',
+    label: 'Reddit 热门 (r/popular)',
+    note: '有凭据→官方 OAuth（可靠）；无凭据→官方 RSS（免 OAuth，但实测会被限流 429）',
     homepage: 'https://www.reddit.com/r/popular/',
-    requires: { env: ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET'], hint: 'reddit.com/prefs/apps 建 script app → 取 client id/secret；写进 /home/tony/zdata/zdashboard/agg.env' },
-    proxy: true,
-    probe: redditHotProbe,
+    probe: redditProbe,
   },
-  // X/Twitter：官方 API v2 的 trends 需付费档（Basic 起）→ 未实现，见 docs/v0.1.4.md
+  {
+    id: 'tr-bluesky',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'Bluesky 趋势话题',
+    note: '官方公共 API，免 key —— 推特的同构替代',
+    homepage: 'https://bsky.app/explore',
+    probe: blueskyTrendsProbe,
+  },
+  {
+    id: 'tr-mastodon',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'Mastodon 趋势标签',
+    note: '官方公共 API，免 key',
+    homepage: 'https://mastodon.social/explore',
+    probe: mastodonTrendsProbe,
+  },
+  {
+    id: 'tr-hn',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'Hacker News 头条',
+    note: '官方 Algolia API，免 key —— 科技圈头条指标',
+    homepage: 'https://news.ycombinator.com/',
+    probe: hnFrontPageProbe,
+  },
+  {
+    id: 'tr-wiki',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'Wikipedia 当日最热条目',
+    note: '官方 pageviews API，免 key —— “世界在看什么”',
+    homepage: 'https://en.wikipedia.org/wiki/Wikipedia:Top_25_Report',
+    probe: wikiTopProbe,
+  },
+  {
+    id: 'tr-github',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'GitHub 新星仓库',
+    note: '官方 search API，免 key（未认证 10 次/分）—— 近 7 天新建 + star 最多',
+    homepage: 'https://github.com/trending',
+    probe: githubTrendingProbe,
+  },
+  {
+    id: 'tr-youtube',
+    board: 'topic',
+    display: 10,
+    ranked: true,
+    group: '外网趋势',
+    label: 'YouTube 最热趋势',
+    note: '官方 Data API v3（免费配额 10k/日），需 YOUTUBE_API_KEY；免 key 的 Invidious 公共实例实测不可靠（403/401/非 JSON）',
+    homepage: 'https://www.youtube.com/feed/trending',
+    requires: { env: ['YOUTUBE_API_KEY'], hint: 'Google Cloud 控制台建项目 → 启用 YouTube Data API v3 → 建 API key；写进 /home/tony/zdata/zdashboard/agg.env' },
+    probe: youtubeTrendingProbe,
+  },
+  // X/Twitter：官方 trends 需付费档；抓取型备选实测全不可靠（nitter RSS 410、getdaytrends rss 301、trends24 无 RSS）
+  //   → 用 Google Trends + Bluesky + Mastodon 组合替代，不做抓取。详 docs/v0.1.5.md
 ];
 
 export const SOURCE_MAP = new Map(SOURCES.map(s => [s.id, s]));

@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.1.4** · [路线图](docs/ROADMAP.md) · [v0.1.4 更新记录](docs/v0.1.4.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
+> **当前版本：v0.1.5** · [路线图](docs/ROADMAP.md) · [v0.1.5 更新记录](docs/v0.1.5.md) · [v0.1.4 更新记录](docs/v0.1.4.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
 
 个人多功能仪表盘，深色主题，横竖屏自适应，单文件 SPA。
 
@@ -15,10 +15,12 @@ Tools 里的 **📡 信息聚合**：每个关注对象一个**独立探针**，
 | HuggingFace | `Qwen` / `ornith-ai` / `Accio-Lab` | 是否发了新模型 |
 | civarchive | `minimax h3` / `qwen image 2.1` | 是否出了新 LoRA（按底模归一化匹配） |
 | 中文热榜 | bilibili 热门 / 微博热搜 / 知乎热榜 / 抖音热榜 | 头条热帖（官方接口，按榜单排名显示前 10） |
-| 外网趋势 | YouTube 最热 / Reddit 热门 | **待配置**（需 API key / app 凭据，见 `docs/v0.1.4.md`） |
+| 外网趋势 | Google Trends / Reddit / Bluesky / Mastodon / Hacker News / Wikipedia / GitHub | 免 key 直接可用；YouTube 待配置（只差 API key） |
 
 > 可行性结论（实测）：国内四家可用官方接口免凭据跑通；**小红书不可行**（无公开接口，只有签名逆向）；
-> YouTube 只差免费 API key、Reddit 要免费注册 app、X/Twitter 趋势必须付费 → 后三者未接或做成「待配置」。
+> 外网以官方免费源为准：Google Trends/HN/Wikipedia/GitHub/Bluesky/Mastodon 免 key 直接可用，
+> Reddit 免 OAuth 会被限流（有免费 app 凭据则走 OAuth），**X/Twitter 是唯一硬付费墙**——
+> 用「Google Trends + Bluesky + Mastodon」组合近似替代。逐条证据见 `docs/v0.1.5.md`。
 
 - 「新」= 本地库里**首次见到**（`agg_item.first_seen == last_seen`）；第一次探测全部为「新」，之后只有真新增才算
 - 缓存 30 分钟；进入页面若过期/未探测会自动跑一次（只自动一次）

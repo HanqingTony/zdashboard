@@ -47,7 +47,9 @@ For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `
 - 每源一段探针逻辑：`src/agg/sources.js`（HF 组织最新模型 / civarchive 按底模筛 LoRA）；加源 = 加一条 `SOURCES` 条目
 - 落库与「新」判定：`src/agg/store.js`（`agg_item` 表：`first_seen == last_seen` 即「新」）；写完 `wal_checkpoint(TRUNCATE)`
 - 路由：`src/routes/agg.js`（TTL 30 分钟、同源并发去重、失败只影响自己）
-- 网络约定：国内平台与 hf-mirror/civarchive **只走直连**；出境源（YouTube/Reddit）在源上声明 `proxy: true`，用 `undici` 的 `ProxyAgent` 显式走本机代理（`AGG_PROXY`，默认 `http://127.0.0.1:12809`）——不依赖系统代理 env
+- 网络约定：国内平台与 hf-mirror/civarchive **只走直连**；出境源在源上声明 `proxyMode`：`'on'` 必走代理 / `'auto'` 先直连失败再走代理（地址 `AGG_PROXY`，默认 `http://127.0.0.1:12809`），不依赖系统代理 env
+- **代理坑（务必记住）**：Node 内置 `fetch` 与外装 `undici` 版本不同，混用 dispatcher 会报 `fetch failed / invalid onRequestStart method` → 代理请求必须用 `undici` 自带的 `fetch`
+- RSS/Atom 源用 `fast-xml-parser`（`parseXml()`）；Reddit 无凭据时退回 RSS（会 429，已加重试一次），有 `REDDIT_CLIENT_ID/SECRET` 时走官方 OAuth
 - 凭据约定：需要 key 的源用 `requires: { env: [...] }` 声明；**凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库）**，单元用 `EnvironmentFile=-` 读；缺变量时状态为 `unconfigured`（不探测、卡片给申请指引）
 - 热榜类源：`ranked: true` + `display: 10`，条目带 `ord`（榜单排名），排序 `(ord IS NULL), ord ASC, created_at DESC`
 - 前端：`public/app.js` 的 `renderAggApp()` / `refreshAgg()`；Tools 角标 `#badgeAgg(L)` 显示新条目数
