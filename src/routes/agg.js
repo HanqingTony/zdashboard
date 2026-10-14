@@ -16,8 +16,24 @@ export const TTL_MS = 30 * 60 * 1000;   // 缓存 30 分钟；超时前端会提
 let lastRefreshAt = null;
 const inflight = new Map();             // sourceId -> Promise
 
+// 源声明了 requires.env 但环境里没有 → 「待配置」：不探测、不报错、不标过期
+function missingEnv(source) {
+  return (source.requires?.env || []).filter(k => !process.env[k]);
+}
+
 function sourceView(source, { stale }) {
   const st = stateOf(source.id);
+  const missing = missingEnv(source);
+  if (missing.length) {
+    return {
+      id: source.id, group: source.group, label: source.label, note: source.note || null,
+      homepage: source.homepage || null,
+      status: 'unconfigured', fetchedAt: st?.fetched_at || null, error: null,
+      itemCount: 0, newCount: 0, durationMs: null, stale: false,
+      requires: { env: source.requires.env, hint: source.requires.hint || null, missing },
+      items: [],
+    };
+  }
   return {
     id: source.id,
     group: source.group,
@@ -31,7 +47,8 @@ function sourceView(source, { stale }) {
     newCount: st?.new_count ?? 0,
     durationMs: st?.duration_ms ?? null,
     stale,
-    items: source.status === 'idle' && !st ? [] : listItems(source.id, 6),
+    ranked: !!source.ranked,
+    items: source.status === 'idle' && !st ? [] : listItems(source.id, source.display || 6),
   };
 }
 
@@ -40,7 +57,7 @@ function snapshot() {
   const sources = SOURCES.map(s => {
     const st = stateOf(s.id);
     const age = st?.fetched_at ? now - new Date(st.fetched_at).getTime() : Infinity;
-    return sourceView(s, { stale: age > TTL_MS });
+    return sourceView(s, { stale: age > TTL_MS });   // 未配置的源在 sourceView 里恒为 stale:false
   });
   const totalNew = sources.reduce((n, s) => n + (s.status === 'ok' ? s.newCount : 0), 0);
   const newest = sources.map(s => s.fetchedAt).filter(Boolean).sort().pop() || null;
@@ -49,6 +66,10 @@ function snapshot() {
 
 // 跑一个源的探针（独立失败隔离 + 并发去重）
 async function runSource(source) {
+  const missing = missingEnv(source);
+  if (missing.length) {
+    return { source: source.id, ok: false, skipped: true, missing, error: `未配置：${missing.join(', ')}` };
+  }
   if (inflight.has(source.id)) return inflight.get(source.id);
   const p = (async () => {
     const t0 = Date.now();

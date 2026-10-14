@@ -47,7 +47,9 @@ For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `
 - 每源一段探针逻辑：`src/agg/sources.js`（HF 组织最新模型 / civarchive 按底模筛 LoRA）；加源 = 加一条 `SOURCES` 条目
 - 落库与「新」判定：`src/agg/store.js`（`agg_item` 表：`first_seen == last_seen` 即「新」）；写完 `wal_checkpoint(TRUNCATE)`
 - 路由：`src/routes/agg.js`（TTL 30 分钟、同源并发去重、失败只影响自己）
-- 网络约定：**只走直连**（`civarchive.com`、`hf-mirror.com` 实测直连可用；`huggingface.co`/`civitai.com` 直连不通）→ 单元无需代理环境变量
+- 网络约定：国内平台与 hf-mirror/civarchive **只走直连**；出境源（YouTube/Reddit）在源上声明 `proxy: true`，用 `undici` 的 `ProxyAgent` 显式走本机代理（`AGG_PROXY`，默认 `http://127.0.0.1:12809`）——不依赖系统代理 env
+- 凭据约定：需要 key 的源用 `requires: { env: [...] }` 声明；**凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库）**，单元用 `EnvironmentFile=-` 读；缺变量时状态为 `unconfigured`（不探测、卡片给申请指引）
+- 热榜类源：`ranked: true` + `display: 10`，条目带 `ord`（榜单排名），排序 `(ord IS NULL), ord ASC, created_at DESC`
 - 前端：`public/app.js` 的 `renderAggApp()` / `refreshAgg()`；Tools 角标 `#badgeAgg(L)` 显示新条目数
 
 ## 服务导航（黄页）

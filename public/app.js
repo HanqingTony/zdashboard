@@ -510,22 +510,26 @@ function aggItemHtml(it) {
     // 紧凑单行：新标 + 标题（截断） + 日期/关键元信息靠右
     const meta = (it.meta || []).slice(0, 2).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
     const when = it.createdAt ? String(it.createdAt).slice(5, 10) : '';
+    const rank = it.ord != null ? `<span class="agg-rank">${it.ord}</span>` : '';
     return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener" title="${escHtml((it.meta || []).join(' · '))}">
-        ${it.isNew ? '<span class="agg-new">新</span>' : ''}
+        ${rank}${it.isNew ? '<span class="agg-new">新</span>' : ''}
         <span class="agg-t">${escHtml(it.title || it.id)}</span>
         <span class="agg-meta"><span class="agg-mt dim">${when}</span>${meta}</span>
     </a>`;
 }
 
 function aggSourceHtml(s) {
-    const badge = s.status === 'error' ? '<span class="agg-st err">失败</span>'
-        : s.status === 'idle' ? '<span class="agg-st idle">未探测</span>'
-            : (s.newCount > 0 ? `<span class="agg-st new">${s.newCount} 新</span>` : '<span class="agg-st ok">无新</span>');
-    const body = s.status === 'error'
-        ? `<div class="agg-err" title="${escHtml(s.error || '')}">${escHtml(s.error || '未知错误')}</div>`
-        : (s.items.length
-            ? s.items.map(aggItemHtml).join('')
-            : '<div class="agg-empty">暂无条目</div>');
+    const badge = s.status === 'unconfigured' ? '<span class="agg-st idle">待配置</span>'
+        : s.status === 'error' ? '<span class="agg-st err">失败</span>'
+            : s.status === 'idle' ? '<span class="agg-st idle">未探测</span>'
+                : (s.newCount > 0 ? `<span class="agg-st new">${s.newCount} 新</span>` : '<span class="agg-st ok">无新</span>');
+    const body = s.status === 'unconfigured'
+        ? `<div class="agg-cfg">需配置 ${escHtml((s.requires?.missing || []).join(', '))}<br>${escHtml(s.requires?.hint || '')}</div>`
+        : s.status === 'error'
+            ? `<div class="agg-err" title="${escHtml(s.error || '')}">${escHtml(s.error || '未知错误')}</div>`
+            : (s.items.length
+                ? s.items.map(aggItemHtml).join('')
+                : '<div class="agg-empty">暂无条目</div>');
     return `<section class="agg-src">
         <header class="agg-hd" title="${escHtml(s.note || '')}">
             <span class="agg-nm">${escHtml(s.label)}</span>${badge}
@@ -534,7 +538,7 @@ function aggSourceHtml(s) {
             <button class="agg-rf" onclick="refreshAgg('${s.id}')" title="只刷新这一项">&#x21BB;</button>
         </header>
         <div class="agg-list">${body}</div>
-        ${s.itemCount > (s.items.length) ? `<div class="agg-more">共 ${s.itemCount} 条，显示最新 ${s.items.length}</div>` : ''}
+        ${s.itemCount > (s.items.length) ? `<div class="agg-more">共 ${s.itemCount} 条，显示${s.ranked ? '前' : '最新'} ${s.items.length}</div>` : ''}
     </section>`;
 }
 

@@ -35,14 +35,18 @@ db.exec(`
   )
 `);
 
+// 热榜类源用 ord 保排名顺序（老库补列，幂等）
+try { db.exec('ALTER TABLE agg_item ADD COLUMN ord INTEGER'); } catch { /* 已存在 */ }
+
 const stmts = {
   getItem: db.prepare('SELECT item_id FROM agg_item WHERE source_id = ? AND item_id = ?'),
   upsert: db.prepare(`
-    INSERT INTO agg_item (source_id, item_id, title, url, created_at, first_seen, last_seen, meta_json)
-    VALUES (@source_id, @item_id, @title, @url, @created_at, @now, @now, @meta_json)
-    ON CONFLICT(source_id, item_id) DO UPDATE SET last_seen = @now, title = @title, url = @url, meta_json = @meta_json
+    INSERT INTO agg_item (source_id, item_id, title, url, created_at, first_seen, last_seen, meta_json, ord)
+    VALUES (@source_id, @item_id, @title, @url, @created_at, @now, @now, @meta_json, @ord)
+    ON CONFLICT(source_id, item_id) DO UPDATE SET last_seen = @now, title = @title, url = @url, meta_json = @meta_json, ord = @ord
   `),
-  list: db.prepare('SELECT * FROM agg_item WHERE source_id = ? ORDER BY created_at DESC, first_seen DESC LIMIT ?'),
+  // 有 ord（热榜排名）→ 按排名；无 ord → 按创建时间倒序
+  list: db.prepare('SELECT * FROM agg_item WHERE source_id = ? ORDER BY (ord IS NULL), ord ASC, created_at DESC, first_seen DESC LIMIT ?'),
   setState: db.prepare(`
     INSERT INTO agg_state (source_id, label, fetched_at, status, error, item_count, new_count, duration_ms)
     VALUES (@source_id, @label, @fetched_at, @status, @error, @item_count, @new_count, @duration_ms)
@@ -73,6 +77,7 @@ export function recordProbe(source, items, { error = null, durationMs = 0 } = {}
           created_at: it.createdAt ?? null,
           now,
           meta_json: JSON.stringify(it.meta || []),
+          ord: Number.isFinite(it.ord) ? it.ord : null,
         });
       }
     });
@@ -101,6 +106,7 @@ export function listItems(sourceId, limit = 12) {
     title: r.title,
     url: r.url,
     createdAt: r.created_at,
+    ord: r.ord ?? null,
     firstSeen: r.first_seen,
     lastSeen: r.last_seen,
     isNew: r.first_seen === r.last_seen,   // 首次见到即「新」（后续探测只更新 last_seen）
