@@ -10,6 +10,7 @@ import { audioRouter, audioState } from './src/routes/audio.js';
 import { articlesRouter } from './src/routes/articles.js';
 import { vocabRouter } from './src/routes/vocab.js';
 import { aggRouter } from './src/routes/agg.js';
+import { projectsRouter } from './src/routes/projects.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(__dirname, 'public');
@@ -40,6 +41,7 @@ app.use(audioRouter);
 app.use(articlesRouter);
 app.use(vocabRouter);
 app.use(aggRouter);
+app.use(projectsRouter);
 
 // WebSocket
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -83,4 +85,5 @@ server.listen(PORT, HOST, () => {
   console.log(`[zdashboard] POST /api/play {"path":"..."} 播放音频`);
   console.log(`[zdashboard] 英语学习: /api/articles, /api/words, /api/vocab/stats`);
   console.log(`[zdashboard] 信息聚合: GET /api/agg, POST /api/agg/refresh`);
+  console.log(`[zdashboard] 项目台账: GET /api/projects, POST /api/projects/import|sync`);
 });

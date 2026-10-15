@@ -41,7 +41,14 @@ For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `
 | `src/routes/articles.js` | `/api/articles` | Article CRUD with word extraction |
 | `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | Word learning status management |
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh` | 信息聚合：读缓存 / 跑探针（每源独立失败隔离） |
+| `src/routes/projects.js` | `/api/projects[/import,/sync,/:id]` | 项目台账：CRUD + 从 zpa 清单导入 + 同步 git |
 | `server.js` | `/api/health` | 探活：`{ok,service,version,uptime}`（在 server.js 内联，不单独建文件） |
+
+## 项目台账
+- **事实源是 zpa 仓库的清单**（`PROJECTS.md`/`IDEAS-RANKING.md`/`PORTFOLIO.md`）；`src/projects/fromMarkdown.js` 把它们解析成 `seed.json`，`/api/projects/import` 按 `name` 幂等 upsert 进 `zproject` 表（`zdb.db`）
+- 导入**不覆盖**库里的操作字段（状态/下一步/备注/风险/verdict/)：SQL 用 `COALESCE(NULLIF(现有值,''), 新值)`
+- git 派生字段（最近提交/脏/未推送/远端）由 `/api/projects/sync` 刷新
+- 想法判决 `verdict`：alive/parked/killed（Tools 角标 = 待判想法数）
 
 ## 信息聚合
 - 每源一段探针逻辑：`src/agg/sources.js`（HF 组织最新模型 / civarchive 按底模筛 LoRA）；加源 = 加一条 `SOURCES` 条目

@@ -142,6 +142,10 @@ function switchApp(app) {
         screen.style.background = 'var(--bg)';
         screen.style.border = '1px solid var(--bdr)';
         renderAggApp(screen);
+    } else if (app === 'projects') {
+        screen.style.background = 'var(--bg)';
+        screen.style.border = '1px solid var(--bdr)';
+        renderProjectsApp(screen);
     } else if (app === null) {
         // 空状态
         screen.style.background = '#000';
@@ -642,6 +646,179 @@ async function refreshAgg(source) {
     }
 }
 
+// ========== 项目台账模块 ==========
+// 事实源：zpa 仓库的清单（PROJECTS.md / IDEAS-RANKING.md）→ 「从清单导入」按名字幂等 upsert；
+// 库里可编辑：状态 / 下一步 / 备注 / 想法评分与判决。git 派生字段靠「同步 git」刷新。
+const pjState = { data: null, filter: { kind: '', layer: '', grade: '', q: '' }, editing: null, busy: false };
+const PJ_STATUS = ['🟢活跃', '🟡按需', '🔵完成待维护', '⚪暂停', '🔴欠账', '🧩上游', '📦归档', '💭想法'];
+const PJ_LAYERS = ['L0 在做', 'L1 活跃', 'L2 按需', 'L3 想法', 'L4 归档'];
+const PJ_KINDS = [['', '全部'], ['repo', '工程'], ['infra', '基建'], ['upstream', '上游'], ['data', '数据'], ['idea', '想法']];
+
+async function pjApi(path, method = 'GET', body) {
+    const res = await fetch(`/api/projects${path}`, {
+        method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+}
+
+function pjChip(txt, cls) { return txt ? `<span class="pj-chip ${cls || ''}">${escHtml(txt)}</span>` : ''; }
+
+function pjRowHtml(it) {
+    const sub = [it.stack, it.deploy, it.ports, it.next_step].filter(Boolean).join(' · ');
+    const git = it.repo_path
+        ? `<span class="pj-git">${escHtml(it.last_commit_at || '—')}${it.dirty ? ` · 脏${it.dirty}` : ''}${it.ahead ? ` · 未推${it.ahead}` : ''}${it.remote ? ` · ${escHtml(it.remote)}` : ''}</span>`
+        : '';
+    const score = it.kind === 'idea' && it.score != null
+        ? `<span class="pj-score" title="F${it.feasibility} + C${it.completeness} + I${it.importance}">${it.score}</span>` : '';
+    const verdictBtn = it.kind === 'idea'
+        ? `<button class="pj-v ${it.verdict === 'alive' ? 'on' : ''}" onclick="pjVerdict(${it.id},'alive')" title="活（继续留着）">活</button>
+           <button class="pj-v ${it.verdict === 'parked' ? 'on' : ''}" onclick="pjVerdict(${it.id},'parked')" title="搁置">搁</button>
+           <button class="pj-v ${it.verdict === 'killed' ? 'on' : ''}" onclick="pjVerdict(${it.id},'killed')" title="判死">死</button>` : '';
+    return `<div class="pj-row" id="pj-row-${it.id}">
+        <div class="pj-main">
+            ${it.grade ? `<span class="pj-grade g${it.grade}">${it.grade}</span>` : ''}
+            <span class="pj-name">${escHtml(it.name)}</span>
+            ${pjChip(it.status)}
+            ${it.layer ? pjChip(it.layer, 'dim') : ''}
+            ${it.pinned ? '<span class="pj-pin">📌</span>' : ''}
+            <span class="pj-grow"></span>
+            ${score}${verdictBtn}
+            <button class="agg-rf" onclick="pjEdit(${it.id})" title="编辑">✎</button>
+        </div>
+        ${sub ? `<div class="pj-sub2">${escHtml(sub)}</div>` : ''}
+        ${it.risk ? `<div class="pj-risk">⚠️ ${escHtml(it.risk)}</div>` : ''}
+        ${git ? `<div class="pj-sub2">${git}</div>` : ''}
+        ${it.note ? `<div class="pj-note">${escHtml(it.note)}</div>` : ''}
+        <div id="pj-edit-${it.id}"></div>
+    </div>`;
+}
+
+function drawProjects() {
+    const box = document.getElementById('pjBody');
+    if (!box || !pjState.data) return;
+    const f = pjState.filter;
+    let items = pjState.data.items;
+    if (f.kind) items = items.filter(i => i.kind === f.kind);
+    if (f.layer) items = items.filter(i => i.layer === f.layer);
+    if (f.grade) items = items.filter(i => i.grade === f.grade);
+    if (f.q) { const q = f.q.toLowerCase(); items = items.filter(i => JSON.stringify(i).toLowerCase().includes(q)); }
+
+    const groups = [];
+    for (const it of items) {
+        const g = it.board || '其它';
+        let x = groups.find(y => y.name === g);
+        if (!x) { x = { name: g, items: [] }; groups.push(x); }
+        x.items.push(it);
+    }
+    const st = pjState.data.stats;
+    document.getElementById('pjSub').textContent =
+        `${st.total} 条 · 在办 ${(st.byLayer.find(x => x.k === 'L0 在做') || {}).n || 0} · 想法 ${st.ideas}（待判 ${st.ideasNoVerdict}）· 风险 ${st.reposWithRisk}`;
+    box.innerHTML = groups.map(g =>
+        `<div class="pj-group"><h3 class="pj-gt">${escHtml(g.name)} <span class="pj-cnt">${g.items.length}</span></h3>${g.items.map(pjRowHtml).join('')}</div>`
+    ).join('') || '<div class="agg-loading">没有匹配的条目</div>';
+}
+
+async function renderProjectsApp(container) {
+    container.innerHTML = '<div class="pj-app"><div class="agg-loading">载入项目台账…</div></div>';
+    let data;
+    try { data = await pjApi(''); } catch (e) {
+        container.innerHTML = `<div class="pj-app"><div class="agg-loading">读取失败：${escHtml(e.message)}</div></div>`;
+        return;
+    }
+    if (currentApp !== 'projects') return;
+    pjState.data = data;
+    container.innerHTML = `<div class="pj-app">
+        <header class="agg-top">
+            <span class="pj-title">&#x1F4CB; 项目台账</span>
+            <span class="pj-sub" id="pjSub"></span>
+            <span class="agg-grow"></span>
+            <button class="vb" onclick="pjSync()">同步 git</button>
+            <button class="vb" onclick="pjImport()">从清单导入</button>
+        </header>
+        <div class="pj-filters">
+            <select class="vb" onchange="pjSet('kind', this.value)">${PJ_KINDS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
+            <select class="vb" onchange="pjSet('layer', this.value)"><option value="">全部层</option>${PJ_LAYERS.map(l => `<option>${l}</option>`).join('')}</select>
+            <select class="vb" onchange="pjSet('grade', this.value)"><option value="">全部档</option>${['A', 'B', 'C', 'D'].map(g => `<option>${g}</option>`).join('')}</select>
+            <input class="pj-q" placeholder="搜索名称/备注/下一步…" oninput="pjSet('q', this.value)">
+        </div>
+        <div id="pjBody"></div>
+    </div>`;
+    drawProjects();
+    updatePjBadge(data.stats.ideasNoVerdict);
+}
+
+function pjSet(k, v) { pjState.filter[k] = v; drawProjects(); }
+
+function updatePjBadge(n) {
+    const txt = n > 0 ? String(n) : '';
+    ['badgePj', 'badgePjL'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = txt; });
+}
+
+async function pjReload() {
+    pjState.data = await pjApi('');
+    drawProjects();
+    updatePjBadge(pjState.data.stats.ideasNoVerdict);
+}
+
+async function pjVerdict(id, v) {
+    await pjApi('/' + id, 'PATCH', { verdict: v });
+    const it = pjState.data.items.find(x => x.id === id);
+    if (it) it.verdict = v;
+    const row = document.getElementById('pj-row-' + id);
+    if (row) row.outerHTML = pjRowHtml(it);
+    updatePjBadge(pjState.data.items.filter(x => x.kind === 'idea' && !x.verdict).length);
+}
+
+async function pjSync() {
+    if (pjState.busy) return; pjState.busy = true;
+    try { const r = await pjApi('/sync', 'POST'); await pjReload(); alert(`已同步 ${r.synced} 个仓库的 git 状态`); }
+    catch (e) { alert('同步失败: ' + e.message); } finally { pjState.busy = false; }
+}
+
+async function pjImport() {
+    if (pjState.busy) return; pjState.busy = true;
+    try { const r = await pjApi('/import', 'POST'); await pjReload(); alert(`已从 zpa 清单导入 ${r.imported} 条（按名字幂等）`); }
+    catch (e) { alert('导入失败: ' + e.message); } finally { pjState.busy = false; }
+}
+
+function pjEdit(id) {
+    const it = pjState.data.items.find(x => x.id === id);
+    const box = document.getElementById('pj-edit-' + id);
+    if (!box) return;
+    if (box.dataset.open === '1') { box.innerHTML = ''; box.dataset.open = '0'; return; }
+    box.dataset.open = '1';
+    const sel = (name, cur, opts) => `<select data-f="${name}">${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+    box.innerHTML = `<div class="pj-editor">
+        <label>下一步 / 交付物<input data-f="next_step" value="${escHtml(it.next_step || '')}"></label>
+        <label>状态 ${sel('status', it.status || '', PJ_STATUS)}</label>
+        <label>层 ${sel('layer', it.layer || '', PJ_LAYERS)}</label>
+        ${it.kind === 'idea' ? `<label>评估 F/C/I <input data-f="feasibility" type="number" min="1" max="5" value="${it.feasibility ?? ''}" style="width:44px"> <input data-f="completeness" type="number" min="1" max="5" value="${it.completeness ?? ''}" style="width:44px"> <input data-f="importance" type="number" min="1" max="5" value="${it.importance ?? ''}" style="width:44px"></label>` : ''}
+        <label>风险 <input data-f="risk" value="${escHtml(it.risk || '')}"></label>
+        <label>备注 <textarea data-f="note" rows="2">${escHtml(it.note || '')}</textarea></label>
+        <div class="pj-actions">
+            <button class="vb" onclick="pjSave(${id})">保存</button>
+            <button class="vb danger" onclick="pjDelete(${id})">删除</button>
+        </div>
+    </div>`;
+}
+
+async function pjSave(id) {
+    const box = document.getElementById('pj-edit-' + id);
+    const patch = {};
+    box.querySelectorAll('[data-f]').forEach(el => { patch[el.dataset.f] = el.value === '' ? null : el.value; });
+    ['feasibility', 'completeness', 'importance'].forEach(k => { if (patch[k] != null) patch[k] = Number(patch[k]); });
+    await pjApi('/' + id, 'PATCH', patch);
+    box.dataset.open = '0'; box.innerHTML = '';
+    await pjReload();
+}
+
+async function pjDelete(id) {
+    if (!confirm('确认从台账删除这一条？（只删库里的记录，不影响仓库/笔记）')) return;
+    await pjApi('/' + id, 'DELETE');
+    await pjReload();
+}
+
 // ========== 工具函数 ==========
 // HTML 转义
 function escHtml(str) {
@@ -762,8 +939,9 @@ scroller.addEventListener('scroll',()=>{
 switchApp('nav');
 layout();
 
-// Tools 角标：信息聚合的「新条目」数（本地接口，很快；失败静默）
+// Tools 角标：信息聚合的「新条目」数 + 项目台账的「待判想法」数（本地接口；失败静默）
 aggFetch(false).then(d => updateAggBadge(d.sources.reduce((n, s) => n + (s.newCount || 0), 0))).catch(() => {});
+pjApi('').then(d => updatePjBadge(d.stats.ideasNoVerdict)).catch(() => {});
 window.addEventListener('resize',()=>{
     panelCollapsed=false;savedPanelH=0;
     panelP.classList.remove('collapsed');

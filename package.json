@@ -1,6 +1,6 @@
 {
   "name": "zdashboard",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "zDashboard backend - audio queue & more",
   "private": true,
   "type": "module",

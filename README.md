@@ -1,10 +1,19 @@
 # zdashboard
 
-> **当前版本：v0.1.5** · [路线图](docs/ROADMAP.md) · [v0.1.5 更新记录](docs/v0.1.5.md) · [v0.1.4 更新记录](docs/v0.1.4.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
+> **当前版本：v0.1.6** · [路线图](docs/ROADMAP.md) · [v0.1.6 更新记录](docs/v0.1.6.md) · [v0.1.5 更新记录](docs/v0.1.5.md) · [v0.1.4 更新记录](docs/v0.1.4.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
 
 个人多功能仪表盘，深色主题，横竖屏自适应，单文件 SPA。
 
 ## 功能模块
+
+### 项目台账
+
+Tools 里的 **📋 项目台账**：把 zpa 仓库的项目组合清单落进 `zdb.db`，在面板里看/改/跟踪。
+
+- 表 `zproject`（126 条 = 工程·基建·上游·数据 32 + 想法 94）；页面按板块分组，显示状态/层/git 状态/风险
+- **事实源 = `zpa` 的清单**（`PROJECTS.md` / `IDEAS-RANKING.md` / `PORTFOLIO.md`）→「从清单导入」按名字幂等 upsert，**不覆盖**你在库里改的状态/下一步/备注
+- 「同步 git」刷新 19 个仓库的最近提交/脏文件/未推送
+- 想法带 F/C/I 评分与 A/B/C/D 档 + **判决按钮（活/搁/死）**，Tools 角标 = 待判想法数
 
 ### 信息聚合
 
@@ -143,11 +152,15 @@ zDashboard/
 │   ├── agg/
 │   │   ├── sources.js  # 信息聚合：各源定义与探针（每源独立逻辑）
 │   │   └── store.js    # 信息聚合：落库 + 「新」判定
+│   ├── projects/
+│   │   ├── store.js        # 项目台账：zproject 表 + CRUD
+│   │   └── fromMarkdown.js # 从 zpa 清单生成 seed.json（清单是事实源）
 │   └── routes/
 │       ├── audio.js    # 音频播放路由
 │       ├── articles.js # 文章管理路由
 │       ├── vocab.js    # 词汇学习路由
-│       └── agg.js      # 信息聚合路由
+│       ├── agg.js      # 信息聚合路由
+│       └── projects.js # 项目台账路由
 ├── public/
 │   ├── index.html      # 单文件 SPA 前端
 │   ├── nav.json        # 服务导航（黄页）数据源
