@@ -215,7 +215,7 @@
   "board": "上游",
   "status": "🧩上游",
   "note": "本地 LLM 推理（llama-server）",
-  "deploy": "zmain 127.0.0.1:28108 → 18108（按需启动）",
+  "deploy": "zmain 0.0.0.0:8080（明文，按需启动；未迁 28xxx）",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/llama.cpp",
   "layer": "L2 按需"

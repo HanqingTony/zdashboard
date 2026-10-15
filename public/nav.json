@@ -12,7 +12,7 @@
         { "name": "searxng", "url": "https://192.168.0.102:18102/", "desc": "元搜索（自建实例）", "port": "18102", "upstream": "28102" },
         { "name": "anm MCP", "url": "https://192.168.0.102:18103/mcp", "desc": "笔记 MCP（SSE · 按需启动）", "port": "18103", "upstream": "28103" },
         { "name": "comfy-web", "url": "https://192.168.0.102:18104/", "desc": "ComfyUI 工作流操作台 + 视频编辑器", "port": "18104", "upstream": "28104" },
-        { "name": "LLM API", "url": "https://192.168.0.102:18108/v1", "desc": "llama.cpp · OpenAI 兼容（按需启动）", "port": "18108", "upstream": "28108" },
+        { "name": "LLM API", "url": "http://192.168.0.102:8080/v1", "desc": "llama.cpp · OpenAI 兼容（按需启动）", "port": "8080", "tags": ["例外：未迁 28xxx"] },
         { "name": "alooplayer", "url": "http://192.168.0.102:18190/", "desc": "独立 nginx 静态站（明文，待规范）", "port": "18190", "tags": ["无 TLS"] }
       ]
     },
