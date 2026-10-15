@@ -8,6 +8,10 @@
 // 网络：只走直连（实测 civarchive.com / hf-mirror.com 直连可用，不走代理）；
 //       zdashboard 的 systemd 单元不需要代理环境变量。
 
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
+
 const HF_BASE = 'https://hf-mirror.com';        // 直连可用（huggingface.co 需代理：直连 000）
 const CA_BASE = 'https://civarchive.com';       // Civitai 存档站，直连可用
 
@@ -415,6 +419,70 @@ const githubTrendingProbe = async () => {
   };
 };
 
+// ---------- 探针 N 类：版本更新（GitHub atom feed + 本地 git describe 对比） ----------
+// 用 atom feed 而非 REST API：共享代理出口 IP 的 API 限额（60/时）易被吃光；feed 走 web 域，不限额。
+// 本地版本 = 源码仓库的 `git describe --tags --always`（z-llamacpp/build.sh、z-ftllm/env.conf 的默认仓库位置）
+function localDescribe(dir) {
+  try {
+    return execFileSync('git', ['-C', dir, 'describe', '--tags', '--always'],
+      { encoding: 'utf8', timeout: 5000 }).trim() || null;
+  } catch { return null; }
+}
+// describe → { tag, dist }：v0.1.8.2-438-gf026aa53 → {tag:'v0.1.8.2',dist:438}；b11195-5-g81bc6b83f → {tag:'b11195',dist:5}；裸 sha → {tag:sha,dist:0}
+function parseDescribe(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(.+?)-(\d+)-g[0-9a-f]+$/i);
+  return m ? { tag: m[1], dist: parseInt(m[2], 10) } : { tag: String(s), dist: 0 };
+}
+// b#### 构建号 / vX.Y.Z 语义号 → 可比数字数组
+function versionKey(v) {
+  const b = String(v).match(/^b(\d+)$/i);
+  if (b) return [parseInt(b[1], 10)];
+  const sem = String(v).match(/^v?(\d+(?:\.\d+)*)(?:\.\d+)?/);
+  if (sem) return sem[1].split('.').map(n => parseInt(n, 10));
+  return null;
+}
+function cmpVersion(a, b) {   // -1/0/1；不可比 → 0
+  const ka = versionKey(a), kb = versionKey(b);
+  if (!ka || !kb || ka.length !== kb.length) return 0;
+  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i] < kb[i] ? -1 : 1;
+  return 0;
+}
+// repo: github 仓库；feed: releases.atom（上游项目）| tags.atom（自有仓库）；localDir: 本地源码仓库
+function githubVersionProbe({ repo, feed, name, localDir, take = 10 }) {
+  return async () => {
+    const txt = await fetchText(`https://github.com/${repo}/${feed}`, { proxyMode: 'auto', timeoutMs: 20000 });
+    const doc = await parseXml(txt);
+    const rows = asArray(doc?.feed?.entry);
+    if (!rows.length) throw new Error('feed 里没有 entry');
+    const local = parseDescribe(localDescribe(localDir));
+    const localShort = local ? (local.dist ? `${local.tag}+${local.dist}` : local.tag) : null;
+    return {
+      items: rows.slice(0, take).map(e => {
+        const tag = String(e.title || '').trim();
+        const link = typeof e.link === 'object' ? (asArray(e.link)[0]?.['@href'] || '') : (e.link || '');
+        const updated = typeof e.updated === 'string' ? e.updated : null;
+        let rel;
+        if (!local) rel = '本地版本未知';
+        else {
+          const c = cmpVersion(tag, local.tag);
+          if (c > 0) rel = `⬆ 本地 ${localShort} 落后`;
+          else if (c === 0) rel = local.dist ? `✓ 本地领先 ${local.dist} 提交` : '✓ 与本地一致';
+          else rel = `本地 ${localShort}`;
+        }
+        const d = daysAgo(updated);
+        return {
+          id: tag || link,
+          title: `${name} ${tag}`,
+          url: link || `https://github.com/${repo}`,
+          createdAt: updated,
+          meta: [rel, d === 0 ? '今天' : d === 1 ? '昨天' : d != null ? `${d} 天前` : null].filter(Boolean),
+        };
+      }),
+    };
+  };
+}
+
 // ---------- 源清单（用户当前关注的信息） ----------
 export const SOURCES = [
   {
@@ -461,6 +529,26 @@ export const SOURCES = [
     note: '检索 "qwen image 2.1" → 只留 LoRA，底模含 Qwen 2.1 / Qwen-Image-2.1',
     homepage: `${CA_BASE}/deleted-models/lora`,
     probe: civarchiveLoraProbe({ term: 'qwen image 2.1', baseRe: /qwen[\s_\-]*(image[\s_\-]*)?2\.1/i }),
+  },
+
+  // ===== 版本更新（本地栈 vs 上游；atom feed 免 key/限额，本地 git describe 对比） =====
+  {
+    id: 'ver-llamacpp',
+    board: 'probe',
+    group: '版本更新',
+    label: 'llama.cpp 上游版本',
+    note: 'ggml-org/llama.cpp releases.atom + 本地 ~/zrepo/llama.cpp git describe；落后时用 z-llamacpp.sh --build 重编',
+    homepage: 'https://github.com/ggml-org/llama.cpp/releases',
+    probe: githubVersionProbe({ repo: 'ggml-org/llama.cpp', feed: 'releases.atom', name: 'llama.cpp', localDir: path.join(os.homedir(), 'zrepo', 'llama.cpp') }),
+  },
+  {
+    id: 'ver-fastllm',
+    board: 'probe',
+    group: '版本更新',
+    label: 'fastllm (ftllm) 版本',
+    note: 'ztxz16/fastllm tags.atom + 本地 ~/zrepo/fastllm git describe；本地为事实源，GitHub 为镜像',
+    homepage: 'https://github.com/ztxz16/fastllm/tags',
+    probe: githubVersionProbe({ repo: 'ztxz16/fastllm', feed: 'tags.atom', name: 'fastllm', localDir: path.join(os.homedir(), 'zrepo', 'fastllm') }),
   },
 
   // ===== 中文热榜（均为官方站点接口；抖音/知乎用官方移动端接口） =====

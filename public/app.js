@@ -512,7 +512,7 @@ async function aggFetch(refresh, source) {
 
 // 板块定义：探针（新模型/新 LoRA）在上，热门话题（热榜/趋势）在下
 const AGG_BOARDS = [
-    { id: 'probe', name: '探针', sub: 'HuggingFace · civarchive —— 有没有新模型 / 新 LoRA' },
+    { id: 'probe', name: '探针', sub: 'HuggingFace · civarchive · 版本更新 —— 新模型 / 新 LoRA / llama.cpp·fastllm 版本' },
     { id: 'topic', name: '热门话题', sub: '中文热榜 · 外网趋势 —— 头条热帖与最热趋势' },
 ];
 
