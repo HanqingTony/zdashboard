@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="dark">
     <title>zDashboard</title>
-    <link rel="stylesheet" href="style.css">
-
+    <link rel="stylesheet" href="style.css?v=__ASSET_VER__">
 </head>
 <body>
 
@@ -22,24 +22,13 @@
         <span class="clk" id="clockP"></span>
         <span class="online-dot"></span>
     </div>
-    <!-- 面板内容（Projects列表 + Tools列表） -->
+    <!-- 面板内容（Projects列表 + Tools列表；由 app.js 的 renderPanels() 生成，避免双份硬编码漂移） -->
     <div class="panel-content" id="panelP" style="background:var(--bg);border-bottom:1px solid var(--bdr)">
         <div class="sec-title">Projects</div>
-        <div class="pr"><div class="pr-i">D</div><span class="pr-n">zDashboard</span><span class="pr-s a"></span></div>
-        <div class="pr"><div class="pr-i">A</div><span class="pr-n">agent_properties</span><span class="pr-s m"></span></div>
-        <div class="pr"><div class="pr-i">W</div><span class="pr-n">WASM Classics</span><span class="pr-s p"></span></div>
-        <div class="pr"><div class="pr-i">V</div><span class="pr-n">Vocab Builder</span><span class="pr-s p"></span></div>
+        <div id="projectsP"></div>
         <div class="sec-div"></div>
         <div class="sec-title">Tools</div>
-        <div class="tl" data-app="nav" onclick="switchApp('nav')">&#x1F9ED; 服务导航 <span class="bd">18100</span></div>
-        <div class="tl" data-app="agg" onclick="switchApp('agg')">&#x1F4E1; 信息聚合 <span class="bd" id="badgeAgg"></span></div>
-        <div class="tl" data-app="projects" onclick="switchApp('projects')">&#x1F4CB; 项目台账 <span class="bd" id="badgePj"></span></div>
-        <div class="tl" data-app="vocab" onclick="switchApp('vocab')">&#x1F4DA; Vocab Builder <span class="bd" id="badgeVocab"></span></div>
-        <div class="tl" data-app="null" onclick="switchApp(null)">&#x2716; Empty</div>
-        <div class="tl">&#x1F4DD; Diary <span class="bd">3</span></div>
-        <div class="tl">&#x1F4B0; Finance</div>
-        <div class="tl">&#x23F0; Reminders <span class="bd">2</span></div>
-        <div class="tl">&#x1F4CA; Data Browser</div>
+        <div id="toolsP"></div>
     </div>
     <!-- 主显示区 -->
     <div class="main-screen" id="screenP">
@@ -68,23 +57,12 @@
             <span class="online-dot"></span>
         </div>
         <!-- 面板内容（横屏下可独立滚动） -->
-        <div class="panel-content">
+        <div class="panel-content" id="panelL">
             <div class="sec-title">Projects</div>
-            <div class="pr"><div class="pr-i">D</div><span class="pr-n">zDashboard</span><span class="pr-s a"></span></div>
-            <div class="pr"><div class="pr-i">A</div><span class="pr-n">agent_properties</span><span class="pr-s m"></span></div>
-            <div class="pr"><div class="pr-i">W</div><span class="pr-n">WASM Classics</span><span class="pr-s p"></span></div>
-            <div class="pr"><div class="pr-i">V</div><span class="pr-n">Vocab Builder</span><span class="pr-s p"></span></div>
+            <div id="projectsL"></div>
             <div class="sec-div"></div>
             <div class="sec-title">Tools</div>
-            <div class="tl" data-app="nav" onclick="switchApp('nav')">&#x1F9ED; 服务导航 <span class="bd">18100</span></div>
-        <div class="tl" data-app="agg" onclick="switchApp('agg')">&#x1F4E1; 信息聚合 <span class="bd" id="badgeAggL"></span></div>
-        <div class="tl" data-app="projects" onclick="switchApp('projects')">&#x1F4CB; 项目台账 <span class="bd" id="badgePjL"></span></div>
-        <div class="tl" data-app="vocab" onclick="switchApp('vocab')">&#x1F4DA; Vocab Builder <span class="bd" id="badgeVocabL"></span></div>
-            <div class="tl" data-app="null" onclick="switchApp(null)">&#x2716; Empty</div>
-            <div class="tl">&#x1F4DD; Diary <span class="bd">3</span></div>
-            <div class="tl">&#x1F4B0; Finance</div>
-            <div class="tl">&#x23F0; Reminders <span class="bd">2</span></div>
-            <div class="tl">&#x1F4CA; Data Browser</div>
+            <div id="toolsL"></div>
         </div>
     </div>
     <!-- 右栏：主显示区容器 -->
@@ -98,14 +76,7 @@
     </div>
 </div>
 
-<!-- 音频播放器 -->
-<div class="audio-bar" id="audioBar">
-    <span class="ab-dot" id="abDot"></span>
-    <span class="ab-name" id="abName">--</span>
-    <span class="ab-badge" id="abBadge" style="display:none">队列 0</span>
-    <span class="ab-ws" id="abWs">connecting...</span>
-</div>
-    <script src="app.js"></script>
+<script type="module" src="app.js?v=__ASSET_VER__"></script>
 
 </body>
 </html>

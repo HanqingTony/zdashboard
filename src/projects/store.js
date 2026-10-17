@@ -1,10 +1,11 @@
 // src/projects/store.js — 项目台账的落库层
 //
 // 设计：**zpa 仓库里的清单是事实源**（PROJECTS.md / IDEAS-RANKING.md / PORTFOLIO.md），
-//       本表是**操作层**：状态、下一步、备注、想法判决（活/死）在这里改，导入时不被覆盖那些字段。
+//       本表是**操作层**：状态/层/下一步/备注/风险/想法判决 在这里改，导入时不覆盖。
 // 表：zproject（一表到底，够用就好）
 
-import db from '../db.js';
+import db, { checkpoint } from '../db.js';
+import { nowIso } from '../lib/time.js';
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS zproject (
@@ -38,12 +39,16 @@ db.exec(`
     ahead              INTEGER,
     synced_at          TEXT,
     pinned             INTEGER DEFAULT 0,
-    created_at         TEXT DEFAULT (datetime('now','localtime')),
+    created_at         TEXT,
     updated_at         TEXT
   )
 `);
 db.exec('CREATE INDEX IF NOT EXISTS idx_project_kind ON zproject (kind, grade)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_project_layer ON zproject (layer)');
+
+export const STATUSES = ['🟢活跃', '🟡按需', '🔵完成待维护', '⚪暂停', '🔴欠账', '🧩上游', '📦归档', '💭想法'];
+export const LAYERS = ['L0 在做', 'L1 活跃', 'L2 按需', 'L3 想法', 'L4 归档'];
+export const VERDICTS = ['alive', 'parked', 'killed'];
 
 const COLS = [
   'name', 'kind', 'board', 'layer', 'status', 'feasibility', 'completeness', 'importance',
@@ -51,26 +56,43 @@ const COLS = [
   'next_step', 'risk', 'note', 'source', 'pinned',
 ];
 
-/** 导入用：只在"来自清单"的字段上 upsert；status/next_step/note/verdict/risk 若库里已有值则不覆盖 */
+// 导入时"库里已有值就不覆盖"的操作字段（其余字段以清单为准）
+const OPERATIONAL = new Set(['status', 'layer', 'next_step', 'note', 'risk', 'verdict']);
+
+const EDITABLE = Object.freeze([
+  'board', 'layer', 'status', 'verdict', 'next_step', 'risk', 'note', 'stack',
+  'deploy', 'ports', 'repo_path', 'remote', 'pinned', 'feasibility', 'completeness', 'importance',
+]);
+
+const gradeOf = (score) => score >= 12 ? 'A' : score >= 9 ? 'B' : score >= 6 ? 'C' : 'D';
+
+/** 导入用：按 name 幂等 upsert；操作字段不被空值/清单覆盖 */
 export function upsertMany(rows) {
+  const setSql = COLS.filter(c => c !== 'name').map(c => OPERATIONAL.has(c)
+    ? `${c} = COALESCE(NULLIF(zproject.${c}, ''), excluded.${c})`
+    : `${c} = COALESCE(excluded.${c}, zproject.${c})`
+  ).join(',\n      ');
+
   const ins = db.prepare(`
     INSERT INTO zproject (${COLS.join(',')}, created_at, updated_at)
-    VALUES (${COLS.map(c => '@' + c).join(',')}, datetime('now','localtime'), datetime('now','localtime'))
+    VALUES (${COLS.map(c => '@' + c).join(',')}, @now, @now)
     ON CONFLICT(name) DO UPDATE SET
-      ${COLS.filter(c => c !== 'name').map(c => `${c} = COALESCE(NULLIF(zproject.${c}, ''), excluded.${c})`).join(',\n      ')},
-      updated_at = datetime('now','localtime')
+      ${setSql},
+      updated_at = @now
   `);
+
+  const now = nowIso();
   let n = 0;
   const tx = db.transaction(list => {
     for (const r of list) {
-      const row = {};
+      const row = { now };
       for (const c of COLS) row[c] = r[c] ?? null;
       ins.run(row);
       n++;
     }
   });
   tx(rows);
-  db.pragma('wal_checkpoint(TRUNCATE)');
+  checkpoint();
   return n;
 }
 
@@ -83,7 +105,10 @@ export function list({ kind, board, layer, status, grade, verdict, q } = {}) {
   if (status) { where.push('status = @status'); args.status = status; }
   if (grade) { where.push('grade = @grade'); args.grade = grade; }
   if (verdict) { where.push('verdict = @verdict'); args.verdict = verdict; }
-  if (q) { where.push('(name LIKE @q OR note LIKE @q OR next_step LIKE @q OR stack LIKE @q)'); args.q = `%${q}%`; }
+  if (q) {
+    where.push('(name LIKE @q OR note LIKE @q OR next_step LIKE @q OR stack LIKE @q)');
+    args.q = `%${q}%`;
+  }
   const sql = `SELECT * FROM zproject ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY pinned DESC,
              CASE kind WHEN 'repo' THEN 0 WHEN 'service' THEN 1 WHEN 'infra' THEN 2 WHEN 'data' THEN 3 WHEN 'upstream' THEN 4 ELSE 5 END,
@@ -93,48 +118,112 @@ export function list({ kind, board, layer, status, grade, verdict, q } = {}) {
 }
 
 export function get(id) {
-  return db.prepare('SELECT * FROM zproject WHERE id = ?').get(id);
+  return db.prepare('SELECT * FROM zproject WHERE id = ?').get(id) || null;
 }
 
-export function create(data) {
-  const keys = Object.keys(data).filter(k => COLS.includes(k) || ['feasibility', 'completeness', 'importance'].includes(k));
-  db.prepare(`INSERT INTO zproject (${keys.join(',')}, created_at, updated_at)
-              VALUES (${keys.map(k => '@' + k).join(',')}, datetime('now','localtime'), datetime('now','localtime'))`)
-    .run(Object.fromEntries(keys.map(k => [k, data[k] ?? null])));
-  db.pragma('wal_checkpoint(TRUNCATE)');
-  return db.prepare('SELECT * FROM zproject WHERE name = ?').get(data.name);
+const scoreNum = (v, field) => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > 5) throw new Error(`${field} 须为 1-5 的整数`);
+  return n;
+};
+
+export function create(data = {}) {
+  const name = String(data.name ?? '').trim();
+  if (!name) throw new Error('缺少 name');
+  if (data.status != null && data.status !== '' && !STATUSES.includes(data.status)) throw new Error(`无效 status: ${data.status}`);
+  if (data.layer != null && data.layer !== '' && !LAYERS.includes(data.layer)) throw new Error(`无效 layer: ${data.layer}`);
+  if (data.verdict != null && data.verdict !== '' && !VERDICTS.includes(data.verdict)) throw new Error(`无效 verdict: ${data.verdict}`);
+  for (const k of ['feasibility', 'completeness', 'importance']) {
+    if (data[k] != null && data[k] !== '') data[k] = scoreNum(data[k], k);
+  }
+  if ([data.feasibility, data.completeness, data.importance].every(v => v != null)) {
+    data.score = data.feasibility + data.completeness + data.importance;
+    data.grade = gradeOf(data.score);
+  }
+  const keys = COLS.filter(k => data[k] !== undefined && data[k] !== '');
+  if (!keys.includes('name')) keys.unshift('name');
+  const row = { now: nowIso() };
+  for (const k of keys) row[k] = k === 'name' ? name : data[k];
+
+  db.prepare(`
+    INSERT INTO zproject (${keys.join(',')}, created_at, updated_at)
+    VALUES (${keys.map(k => '@' + k).join(',')}, @now, @now)
+  `).run(row);
+  checkpoint();
+  return db.prepare('SELECT * FROM zproject WHERE name = ?').get(name);
 }
 
-const EDITABLE = ['board', 'layer', 'status', 'verdict', 'next_step', 'risk', 'note', 'stack',
-  'deploy', 'ports', 'repo_path', 'remote', 'pinned', 'feasibility', 'completeness', 'importance'];
+export function update(id, patch = {}) {
+  const cur = get(id);
+  if (!cur) return null;
 
-export function update(id, patch) {
-  const keys = Object.keys(patch).filter(k => EDITABLE.includes(k));
-  if (keys.length === 0) return get(id);
-  if (keys.includes('feasibility') || keys.includes('completeness') || keys.includes('importance')) {
-    const cur = get(id);
-    const f = patch.feasibility ?? cur.feasibility, c = patch.completeness ?? cur.completeness, i = patch.importance ?? cur.importance;
+  const data = {};
+  for (const k of EDITABLE) if (k in patch) data[k] = patch[k];
+
+  if ('status' in data && !STATUSES.includes(data.status)) throw new Error(`无效 status: ${data.status}`);
+  if ('layer' in data && !LAYERS.includes(data.layer)) throw new Error(`无效 layer: ${data.layer}`);
+  if ('verdict' in data && data.verdict != null && data.verdict !== '' && !VERDICTS.includes(data.verdict)) {
+    throw new Error(`无效 verdict: ${data.verdict}`);
+  }
+  for (const k of ['feasibility', 'completeness', 'importance']) {
+    if (k in data) data[k] = scoreNum(data[k], k);
+  }
+
+  // F/C/I 任一变动且三项齐全 → 重算 score/grade（原先会改写模块级 EDITABLE 数组）
+  if (['feasibility', 'completeness', 'importance'].some(k => k in data)) {
+    const f = 'feasibility' in data ? data.feasibility : cur.feasibility;
+    const c = 'completeness' in data ? data.completeness : cur.completeness;
+    const i = 'importance' in data ? data.importance : cur.importance;
     if ([f, c, i].every(v => v != null)) {
-      patch = { ...patch, score: f + c + i, grade: (f + c + i) >= 12 ? 'A' : (f + c + i) >= 9 ? 'B' : (f + c + i) >= 6 ? 'C' : 'D' };
-      for (const k of ['score', 'grade']) if (!EDITABLE.includes(k)) EDITABLE.push(k), keys.push(k);
+      const score = f + c + i;
+      data.score = score;
+      data.grade = gradeOf(score);
     }
   }
-  db.prepare(`UPDATE zproject SET ${keys.map(k => `${k} = @${k}`).join(', ')}, updated_at = datetime('now','localtime') WHERE id = @id`)
-    .run({ ...patch, id });
-  db.pragma('wal_checkpoint(TRUNCATE)');
+
+  const keys = Object.keys(data);
+  if (!keys.length) return cur;
+
+  db.prepare(`
+    UPDATE zproject SET ${keys.map(k => `${k} = @${k}`).join(', ')}, updated_at = @now
+    WHERE id = @id
+  `).run({ ...data, id, now: nowIso() });
+  checkpoint();
   return get(id);
 }
 
 export function remove(id) {
   const n = db.prepare('DELETE FROM zproject WHERE id = ?').run(id).changes;
-  db.pragma('wal_checkpoint(TRUNCATE)');
+  if (n > 0) checkpoint();
   return n > 0;
 }
 
+/** 批量写 git 派生字段（一次事务 + 一次 checkpoint） */
+export function saveGitMany(rows) {
+  if (!rows.length) return 0;
+  const stmt = db.prepare(`
+    UPDATE zproject
+       SET last_commit_at = @last_commit_at,
+           last_commit_subject = @last_commit_subject,
+           dirty = @dirty,
+           ahead = @ahead,
+           remote = COALESCE(@remote, remote),
+           synced_at = @synced_at,
+           updated_at = @synced_at
+     WHERE id = @id
+  `);
+  const now = nowIso();
+  const tx = db.transaction(list => {
+    for (const r of list) stmt.run({ ...r, synced_at: r.synced_at || now });
+  });
+  tx(rows);
+  checkpoint();
+  return rows.length;
+}
+
 export function saveGit(id, g) {
-  db.prepare(`UPDATE zproject SET last_commit_at=@last_commit_at, last_commit_subject=@last_commit_subject,
-              dirty=@dirty, ahead=@ahead, remote=COALESCE(@remote, remote), synced_at=datetime('now','localtime'),
-              updated_at=datetime('now','localtime') WHERE id=@id`).run({ ...g, id });
+  return saveGitMany([{ id, ...g }]);
 }
 
 export function stats() {

@@ -1,18 +1,26 @@
 // src/routes/agg.js — 「信息聚合」路由
 //
-//  GET  /api/agg            读取缓存（含「新」标记），标记是否过期
-//  POST /api/agg/refresh    跑探针（可指定 ?source=<id> 或 body.source），写库并返回最新结果
+//  GET  /api/agg                 读取缓存（含未读标记与过期判定）
+//  POST /api/agg/refresh         跑探针：?source=<id> 只刷一个；不带 source 刷全部过期源；
+//                                ?force=1（或 body.force）连未过期的也刷
+//  POST /api/agg/open            标记已读水位：body {all:true} 或 {source:"<id>"}
 //
-// 每条信息源独立探测、独立失败：某个源挂了只影响它自己（status=error + error 文本），
-// 其余照常返回；同源并发刷新会被合并（in-flight 去重）。
+// 每个源独立探测、独立失败；同源并发刷新合并；全量刷新带并发上限（默认 4）。
+// 「新」的语义见 src/agg/store.js（opened_at 水位，而不是上次探测）。
 
 import { Router } from 'express';
 import { SOURCES, SOURCE_MAP } from '../agg/sources.js';
-import { recordProbe, listItems, stateOf } from '../agg/store.js';
+import {
+  recordProbe, listItems, getStateMap, unreadCount,
+  markOpened, pruneItems, staleness,
+} from '../agg/store.js';
+import { nowIso } from '../lib/time.js';
 
 const router = Router();
 
-export const TTL_MS = 30 * 60 * 1000;   // 缓存 30 分钟；超时前端会提示/自动刷新
+export const TTL_MS = 30 * 60 * 1000;   // 缓存 30 分钟
+const CONCURRENCY = 4;                  // 全量刷新时同时探测的源数量
+
 let lastRefreshAt = null;
 const inflight = new Map();             // sourceId -> Promise
 
@@ -21,19 +29,22 @@ function missingEnv(source) {
   return (source.requires?.env || []).filter(k => !process.env[k]);
 }
 
-function sourceView(source, { stale }) {
-  const st = stateOf(source.id);
+function sourceView(source, { states, now }) {
+  const st = states.get(source.id) || null;
   const missing = missingEnv(source);
+  const info = staleness(st, TTL_MS, now);
+
   if (missing.length) {
     return {
-      id: source.id, board: source.board || 'probe', group: source.group, label: source.label, note: source.note || null,
-      homepage: source.homepage || null,
-      status: 'unconfigured', fetchedAt: st?.fetched_at || null, error: null,
-      itemCount: 0, newCount: 0, durationMs: null, stale: false,
+      id: source.id, board: source.board || 'probe', group: source.group, label: source.label,
+      note: source.note || null, homepage: source.homepage || null,
+      status: 'unconfigured', fetchedAt: st?.fetched_at || null, lastOkAt: st?.last_ok_at || null,
+      error: null, itemCount: 0, newCount: 0, durationMs: null, stale: false, ranked: !!source.ranked,
       requires: { env: source.requires.env, hint: source.requires.hint || null, missing },
       items: [],
     };
   }
+
   return {
     id: source.id,
     board: source.board || 'probe',
@@ -43,26 +54,29 @@ function sourceView(source, { stale }) {
     homepage: source.homepage || null,
     status: st?.status || 'idle',        // idle | ok | error
     fetchedAt: st?.fetched_at || null,
+    lastOkAt: st?.last_ok_at || null,
     error: st?.error || null,
     itemCount: st?.item_count ?? 0,
-    newCount: st?.new_count ?? 0,
+    newCount: unreadCount(source.id),    // 未读条数（不是"本次新见到"）
     durationMs: st?.duration_ms ?? null,
-    stale,
+    stale: info.stale,
+    failCount: st?.fail_count || 0,
     ranked: !!source.ranked,
-    items: source.status === 'idle' && !st ? [] : listItems(source.id, source.display || 6),
+    items: st ? listItems(source.id, source.display || 6) : [],
   };
 }
 
 function snapshot() {
   const now = Date.now();
-  const sources = SOURCES.map(s => {
-    const st = stateOf(s.id);
-    const age = st?.fetched_at ? now - new Date(st.fetched_at).getTime() : Infinity;
-    return sourceView(s, { stale: age > TTL_MS });   // 未配置的源在 sourceView 里恒为 stale:false
-  });
-  const totalNew = sources.reduce((n, s) => n + (s.status === 'ok' ? s.newCount : 0), 0);
-  const newest = sources.map(s => s.fetchedAt).filter(Boolean).sort().pop() || null;
-  return { lastRefreshAt: lastRefreshAt || newest, totalNew, ttlMs: TTL_MS, sources };
+  const states = getStateMap();
+  const sources = SOURCES.map(s => sourceView(s, { states, now }));
+  const totalNew = sources.reduce((n, s) => n + (s.status === 'unconfigured' ? 0 : s.newCount), 0);
+  const newest = sources
+    .map(s => s.lastOkAt || s.fetchedAt)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+  return { lastRefreshAt: newest || lastRefreshAt, totalNew, ttlMs: TTL_MS, sources };
 }
 
 // 跑一个源的探针（独立失败隔离 + 并发去重）
@@ -90,20 +104,66 @@ async function runSource(source) {
   return p;
 }
 
+// 简单并发池：避免 18 个源同时打代理/外部 API（GitHub 未认证 10 次/分）
+async function runPool(list, limit) {
+  const out = new Array(list.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, list.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= list.length) return;
+      out[i] = await runSource(list[i]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 router.get('/api/agg', (req, res) => {
   res.json(snapshot());
 });
 
-router.post('/api/agg/refresh', async (req, res) => {
-  const wanted = req.query.source || req.body?.source || null;
-  const targets = wanted
-    ? [SOURCE_MAP.get(String(wanted))].filter(Boolean)
-    : SOURCES;
-  if (targets.length === 0) return res.status(400).json({ error: `未知 source: ${wanted}` });
+router.post('/api/agg/refresh', async (req, res, next) => {
+  try {
+    const wanted = req.query.source || req.body?.source || null;
+    const force = req.query.force === '1' || req.body?.force === true;
+    const now = Date.now();
 
-  const results = await Promise.all(targets.map(runSource));
-  lastRefreshAt = new Date().toISOString();
-  res.json({ results, ...snapshot() });
+    let targets;
+    if (wanted) {
+      const src = SOURCE_MAP.get(String(wanted));
+      if (!src) return res.status(400).json({ error: `未知 source: ${wanted}` });
+      if (missingEnv(src).length) {
+        return res.json({ results: [{ source: src.id, ok: false, skipped: true, missing: missingEnv(src) }], ...snapshot() });
+      }
+      targets = [src];
+    } else {
+      const states = getStateMap();
+      targets = SOURCES.filter(s => {
+        if (missingEnv(s).length) return false;
+        return force || staleness(states.get(s.id), TTL_MS, now).stale;
+      });
+    }
+
+    const results = await runPool(targets, CONCURRENCY);
+
+    if (!wanted) {
+      lastRefreshAt = nowIso();
+      try { pruneItems(SOURCES); } catch (e) { console.warn('[agg] 保留策略清理失败:', e.message); }
+    }
+
+    res.json({ results, ...snapshot() });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/api/agg/open', (req, res) => {
+  const { all, source } = req.body || {};
+  if (all) return res.json({ ok: true, marked: markOpened(null) });
+  if (!source) return res.status(400).json({ error: '需要 {source} 或 {all:true}' });
+  if (!SOURCE_MAP.has(String(source))) return res.status(400).json({ error: `未知 source: ${source}` });
+  return res.json({ ok: true, marked: markOpened([String(source)]) });
 });
 
 export { router as aggRouter };

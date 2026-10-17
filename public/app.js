@@ -1,174 +1,166 @@
-// ========== 音频播放器 ==========
-const audioBar = document.getElementById('audioBar');
-const abDot = document.getElementById('abDot');
-const abName = document.getElementById('abName');
-const abBadge = document.getElementById('abBadge');
-const abWs = document.getElementById('abWs');
+// public/app.js — 单文件 SPA（type="module"；共享 public/tokenize.js）
+import { tokenize } from './tokenize.js';
 
-// 隐藏的 <audio> 元素
-const audioEl = new Audio();
-let currentPlayId = null;
-let wsQueueCount = 0;
+// ========== 可选写保护 token ==========
+// 设置 AUTH_TOKEN 后：打开一次 https://host/?token=xxx 即可（存 localStorage 并清掉 URL 参数）
+const ZDB_TOKEN = readToken();
 
-// 更新队列角标
-function updateBadge(count) {
-    wsQueueCount = count;
-    if (count > 0) {
-        abBadge.textContent = `队列 ${count}`;
-        abBadge.style.display = '';
-    } else {
-        abBadge.style.display = 'none';
-    }
-}
-
-// 播放音频
-function playAudio(id, url, fileName) {
-    currentPlayId = id;
-    abName.textContent = fileName;
-    abDot.classList.add('playing');
-    audioBar.classList.add('visible');
-    audioEl.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-    audioEl.play().catch(e => console.warn('[audio] 自动播放被阻止:', e));
-}
-
-// 音频播放结束 → 通知后端播放下一首
-audioEl.addEventListener('ended', () => {
-    abDot.classList.remove('playing');
-    abName.textContent = '--';
-    if (ws && ws.readyState === 1 && currentPlayId !== null) {
-        ws.send(JSON.stringify({ event: 'ended', data: { id: currentPlayId } }));
-        currentPlayId = null;
-    }
-});
-
-// ========== WebSocket 连接 ==========
-function wsUrl() {
-    const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${p}//${location.host}/ws`;
-}
-
-let ws;
-let wsRetryTimer = null;
-
-function connectWs() {
-    ws = new WebSocket(wsUrl());
-    abWs.textContent = 'connecting...';
-
-    ws.addEventListener('open', () => {
-        abWs.textContent = 'live';
-        abWs.style.color = 'var(--grn)';
-        if (wsRetryTimer) { clearTimeout(wsRetryTimer); wsRetryTimer = null; }
-    });
-
-    ws.addEventListener('message', (e) => {
-        const msg = JSON.parse(e.data);
-        switch (msg.event) {
-            case 'play':
-                playAudio(msg.data.id, msg.data.url, msg.data.fileName);
-                break;
-            case 'queued':
-                updateBadge(msg.data.position);
-                break;
-            case 'sync':
-                updateBadge(msg.data.queue?.length || 0);
-                break;
-            case 'cleared':
-                updateBadge(0);
-                break;
+function readToken() {
+    try {
+        const u = new URL(location.href);
+        const t = u.searchParams.get('token');
+        if (t) {
+            localStorage.setItem('zdbToken', t);
+            u.searchParams.delete('token');
+            history.replaceState(null, '', u.pathname + u.search + u.hash);
         }
-    });
-
-    ws.addEventListener('close', () => {
-        abWs.textContent = 'offline';
-        abWs.style.color = 'var(--red)';
-        wsRetryTimer = setTimeout(connectWs, 3000);
-    });
-
-    ws.addEventListener('error', () => {});
+        return localStorage.getItem('zdbToken') || '';
+    } catch { return ''; }
 }
 
-connectWs();
+async function apiFetch(path, opts = {}) {
+    const headers = { ...(opts.headers || {}) };
+    if (ZDB_TOKEN && path.startsWith('/api')) headers['X-ZToken'] = ZDB_TOKEN;
+    const res = await fetch(path, { ...opts, headers });
+    if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { const j = await res.json(); if (j?.error) msg = j.error; } catch { /* 非 JSON */ }
+        throw new Error(msg);
+    }
+    return res;
+}
+
+// ========== 工具函数 ==========
+const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+// 注意：必须转义引号——项目备注/外部 feed 标题都会进属性（value="…" / title="…"）
+function escHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => HTML_ESC[c]);
+}
+
+// 外链只允许 http(s) 或站内绝对路径，挡掉 javascript: / data: 之类
+function safeUrl(value) {
+    const s = String(value ?? '').trim();
+    return /^(https?:\/\/|\/(?!\/))/i.test(s) ? s : '#';
+}
+
+function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(5, 10);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${m}-${day}`;
+}
 
 // ========== 时钟 ==========
-function tick(){
-    const n=new Date,p=v=>String(v).padStart(2,'0');
-    const t=`${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;
-    document.getElementById('clockP').textContent=t;
-    document.getElementById('clockL').textContent=t;
+function tick() {
+    const n = new Date(), p = v => String(v).padStart(2, '0');
+    const t = `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;
+    document.getElementById('clockP').textContent = t;
+    document.getElementById('clockL').textContent = t;
 }
-tick();setInterval(tick,15000);
+tick();
+setInterval(tick, 15000);
 
-// ========== DOM引用 ==========
-const scroller=document.getElementById('scroller');
-const landscape=document.getElementById('landscape');
-const panelP=document.getElementById('panelP');
-const screenP=document.getElementById('screenP');
-const screenL=document.getElementById('screenL');
-const lsRight=document.getElementById('lsRight');
-const spacer=document.getElementById('portSpacer');
+// ========== DOM 引用 ==========
+const scroller = document.getElementById('scroller');
+const landscape = document.getElementById('landscape');
+const panelP = document.getElementById('panelP');
+const screenP = document.getElementById('screenP');
+const screenL = document.getElementById('screenL');
+const lsRight = document.getElementById('lsRight');
+const spacer = document.getElementById('portSpacer');
+
+// ========== 侧栏（Projects / Tools）==========
+// 竖屏和横屏用同一份配置生成，避免两份硬编码漂移
+const PROJECTS = [
+    { i: 'D', n: 'zDashboard', s: 'a' },
+    { i: 'A', n: 'agent_properties', s: 'm' },
+    { i: 'W', n: 'WASM Classics', s: 'p' },
+    { i: 'V', n: 'Vocab Builder', s: 'p' },
+];
+
+const APPS = [
+    { app: 'nav', label: '🧭 服务导航', badge: '18100' },
+    { app: 'agg', label: '📡 信息聚合', badgeId: 'badgeAgg' },
+    { app: 'projects', label: '📋 项目台账', badgeId: 'badgePj' },
+    { app: 'vocab', label: '📚 Vocab Builder', badgeId: 'badgeVocab' },
+    { app: null, label: '✖ Empty' },
+    { label: '📝 Diary', badge: '3' },
+    { label: '💰 Finance' },
+    { label: '⏰ Reminders', badge: '2' },
+    { label: '📊 Data Browser' },
+];
+
+function renderPanels() {
+    const projectsHtml = PROJECTS.map(p =>
+        `<div class="pr"><div class="pr-i">${escHtml(p.i)}</div><span class="pr-n">${escHtml(p.n)}</span><span class="pr-s ${escHtml(p.s)}"></span></div>`
+    ).join('');
+
+    const toolsHtml = (suffix) => APPS.map(t => {
+        const badge = t.badgeId
+            ? `<span class="bd" id="${t.badgeId}${suffix}"></span>`
+            : t.badge ? `<span class="bd">${escHtml(t.badge)}</span>` : '';
+        if (t.app === undefined) return `<div class="tl">${escHtml(t.label)} ${badge}</div>`;
+        const dataApp = t.app === null ? '' : t.app;
+        const onclick = t.app === null ? "switchApp(null)" : `switchApp('${t.app}')`;
+        return `<div class="tl" data-app="${dataApp}" onclick="${onclick}">${escHtml(t.label)} ${badge}</div>`;
+    }).join('');
+
+    for (const [id, suffix] of [['projectsP', ''], ['projectsL', 'L']]) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = projectsHtml;
+    }
+    for (const [id, suffix] of [['toolsP', ''], ['toolsL', 'L']]) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = toolsHtml(suffix);
+    }
+}
 
 // ========== 应用切换框架 ==========
-// currentApp: 当前激活的应用 ID（null 表示空）
 let currentApp = null;
 
-// 获取当前活跃的主显示区 DOM
 function getActiveScreen() {
     return isMobile() ? screenP : screenL;
 }
 
-// 切换应用
-// app: 'vocab' | null | 其他模块名
-function switchApp(app) {
-    currentApp = app;
-    const screen = getActiveScreen();
+function renderApp(screen, app) {
+    screen.innerHTML = '';
+    if (app === null) {
+        screen.style.background = '#000';
+        screen.style.border = 'none';
+        screen.innerHTML = '<div class="ms-ph"><span class="b">&#x25A1;</span>1 : 1</div>';
+        return;
+    }
+    screen.style.background = 'var(--bg)';
+    screen.style.border = app === 'vocab' ? '1px solid rgba(108,92,231,.35)' : '1px solid var(--bdr)';
+    if (app === 'vocab') renderVocabApp(screen);
+    else if (app === 'nav') renderNavApp(screen);
+    else if (app === 'agg') renderAggApp(screen);
+    else if (app === 'projects') renderProjectsApp(screen);
+    else screen.innerHTML = `<div class="ms-ph"><span class="b">&#x25A1;</span>${escHtml(app)}</div>`;
+}
 
-    // 更新所有 .tl 的激活状态
-    document.querySelectorAll('.tl[data-app]').forEach(el => {
-        el.classList.toggle('active', el.dataset.app === app);
+function switchApp(app) {
+    // 离开聚合页 → 记下已读水位（Tools 角标清零）
+    if (currentApp === 'agg' && app !== 'agg') ackAggRead();
+
+    currentApp = app;
+    document.querySelectorAll('#toolsP .tl[data-app], #toolsL .tl[data-app]').forEach(el => {
+        el.classList.toggle('active', (el.dataset.app || null) === app);
     });
 
-    // 清空主显示区
-    screen.innerHTML = '';
-
-    if (app === 'vocab') {
-        screen.style.background = 'var(--bg)';
-        screen.style.border = '1px solid rgba(108,92,231,.35)';
-        renderVocabApp(screen);
-    } else if (app === 'nav') {
-        screen.style.background = 'var(--bg)';
-        screen.style.border = '1px solid var(--bdr)';
-        renderNavApp(screen);
-    } else if (app === 'agg') {
-        screen.style.background = 'var(--bg)';
-        screen.style.border = '1px solid var(--bdr)';
-        renderAggApp(screen);
-    } else if (app === 'projects') {
-        screen.style.background = 'var(--bg)';
-        screen.style.border = '1px solid var(--bdr)';
-        renderProjectsApp(screen);
-    } else if (app === null) {
-        // 空状态
-        screen.style.background = '#000';
-        screen.innerHTML = '<div class="ms-ph"><span class="b">&#x25A1;</span>1 : 1</div>';
-    } else {
-        screen.style.background = '#000';
-        screen.innerHTML = `<div class="ms-ph"><span class="b">&#x25A1;</span>${app}</div>`;
-    }
-
-    // 切换应用后重新布局（因为内容高度可能变化）
+    renderApp(getActiveScreen(), app);
     requestAnimationFrame(layout);
 }
 
 // ========== 英语学习模块 ==========
-
-// 模块状态
 const vocabState = {
-    articles: [],          // 文章列表
-    currentArticle: null,  // 当前加载的文章详情 {id, title, content, words}
-    loading: false,
+    articles: [],
+    currentArticle: null,
 };
 
-// 渲染整个英语学习模块
 function renderVocabApp(container) {
     container.innerHTML = `
         <div class="vocab-app">
@@ -194,54 +186,53 @@ function renderVocabApp(container) {
             </div>
         </div>
     `;
-
-    // 加载文章列表和统计
+    // 旋转/切屏重渲染时保留当前文章
+    if (vocabState.currentArticle) renderArticleContent(vocabState.currentArticle);
     loadArticles();
     loadVocabStats();
 }
 
-// 加载词汇统计
 async function loadVocabStats() {
     try {
-        const res = await fetch('/api/vocab/stats');
-        const s = await res.json();
+        const s = await (await apiFetch('/api/vocab/stats')).json();
         const el = document.getElementById('vocabStats');
         if (el) {
             el.innerHTML = `
-                <span>词 <span class="num">${s.total||0}</span></span>
-                <span style="color:var(--grn)">+${s.mastered||0}</span>
-                <span style="color:var(--org)">~${s.familiar||0}</span>
-                <span style="color:var(--red)">?${s.unknown||0}</span>
+                <span>词 <span class="num">${s.total || 0}</span></span>
+                <span style="color:var(--grn)">+${s.mastered || 0}</span>
+                <span style="color:var(--org)">~${s.familiar || 0}</span>
+                <span style="color:var(--red)">?${s.unknown || 0}</span>
             `;
         }
-    } catch(e) { console.warn('[vocab] stats加载失败:', e); }
+    } catch (e) { console.warn('[vocab] stats 加载失败:', e.message); }
 }
 
-// 加载文章列表
+let statsTimer = null;
+function loadVocabStatsSoon() {
+    clearTimeout(statsTimer);
+    statsTimer = setTimeout(loadVocabStats, 150);
+}
+
 async function loadArticles() {
     try {
-        const res = await fetch('/api/articles');
-        vocabState.articles = await res.json();
+        vocabState.articles = await (await apiFetch('/api/articles')).json();
         renderArticleList();
-    } catch(e) { console.warn('[vocab] 文章列表加载失败:', e); }
+    } catch (e) { console.warn('[vocab] 文章列表加载失败:', e.message); }
 }
 
-// 渲染文章列表侧栏
 function renderArticleList() {
     const el = document.getElementById('articleList');
     if (!el) return;
-
     if (vocabState.articles.length === 0) {
         el.innerHTML = '<div style="padding:12px;color:var(--tx3);font-size:10px;text-align:center">暂无文章</div>';
         return;
     }
-
     el.innerHTML = vocabState.articles.map(a => `
         <div class="vs-item ${vocabState.currentArticle && vocabState.currentArticle.id === a.id ? 'active' : ''}"
              onclick="loadArticle(${a.id})">
             <div class="vs-title">${escHtml(a.title)}</div>
             <div class="vs-meta">
-                <span>${a.word_count||0} 词</span>
+                <span>${a.word_count || 0} 词</span>
                 <span>${formatDate(a.created)}</span>
                 <button class="vs-del" onclick="event.stopPropagation();deleteArticle(${a.id})" title="删除">&times;</button>
             </div>
@@ -249,35 +240,28 @@ function renderArticleList() {
     `).join('');
 }
 
-// 加载单篇文章
 async function loadArticle(id) {
     try {
-        const res = await fetch(`/api/articles/${id}`);
-        const article = await res.json();
+        const article = await (await apiFetch(`/api/articles/${id}`)).json();
         vocabState.currentArticle = article;
         renderArticleContent(article);
-        renderArticleList();  // 刷新列表高亮
-    } catch(e) {
-        console.warn('[vocab] 文章加载失败:', e);
-    }
+        renderArticleList();
+    } catch (e) { console.warn('[vocab] 文章加载失败:', e.message); }
 }
 
-// 删除文章
 async function deleteArticle(id) {
-    if (!confirm('确定删除这篇文章？关联的词汇记录也会被清理。')) return;
+    if (!confirm('确定删除这篇文章？不再属于任何文章的词汇记录也会被清理。')) return;
     try {
-        await fetch(`/api/articles/${id}`, { method: 'DELETE' });
-        // 如果删除的是当前文章，清空阅读区
+        await apiFetch(`/api/articles/${id}`, { method: 'DELETE' });
         if (vocabState.currentArticle && vocabState.currentArticle.id === id) {
             vocabState.currentArticle = null;
             renderEmptyReader();
         }
         await loadArticles();
-        await loadVocabStats();
-    } catch(e) { console.warn('[vocab] 删除失败:', e); }
+        loadVocabStats();
+    } catch (e) { alert('删除失败: ' + e.message); }
 }
 
-// 渲染文章阅读区（空状态提示）
 function renderEmptyReader() {
     const reader = document.getElementById('vocabReader');
     if (!reader) return;
@@ -289,62 +273,27 @@ function renderEmptyReader() {
     `;
 }
 
-// 渲染文章内容（分词 + 着色）
+// 渲染文章（分词与后端共用 public/tokenize.js，保证可点的词都在库里）
 function renderArticleContent(article) {
     const reader = document.getElementById('vocabReader');
     if (!reader) return;
 
-    // 构建单词状态查找表
     const wordMap = {};
-    if (article.words) {
-        for (const w of article.words) {
-            wordMap[w.word] = w.status;
-        }
-    }
+    for (const w of article.words || []) wordMap[w.word] = w.status;
 
-    // 分词：正则匹配字母数字（含撇号、连字符），标点自动忽略
-    // 预处理：统一全角/弯引号标点为半角（常见于从 Word/PDF 复制的文本）
-    const normalized = article.content
-        .replace(/[\u2019\u2018\u201A\uFF07]/g, "'")
-        .replace(/[\u2013\u2014\u2010\uFF0D]/g, "-");
-    const WORD_RE = /[a-zA-Z0-9]+(?:['\-][a-zA-Z0-9]+)*/g;
-    const words = normalized.match(WORD_RE) || [];
-    // 记录每个匹配的索引位置，用于渲染时还原原始文本格式
-    let matchPos = 0;
-    const tokens = [];
-    for (const w of words) {
-        // 找到该词在原文中的实际位置
-        const idx = normalized.indexOf(w, matchPos);
-        if (idx === -1) break;
-        // 词之前的文本作为分隔符
-        if (idx > matchPos) {
-            tokens.push({ type: 'sep', text: normalized.slice(matchPos, idx) });
-        }
-        tokens.push({ type: 'word', text: w, key: w.toLowerCase() });
-        matchPos = idx + w.length;
-    }
-    // 尾部剩余文本
-    if (matchPos < normalized.length) {
-        tokens.push({ type: 'sep', text: normalized.slice(matchPos) });
-    }
-
-    // 构建渲染 HTML
-    let html = `<div class="vocab-article-title">${escHtml(article.title)}</div>`;
-    html += '<div class="vocab-text">';
-    for (const t of tokens) {
+    let html = `<div class="vocab-article-title">${escHtml(article.title)}</div><div class="vocab-text">`;
+    for (const t of tokenize(article.content)) {
         if (t.type === 'sep') {
             html += `<span class="vw-sep">${escHtml(t.text)}</span>`;
         } else {
             const status = wordMap[t.key] || 'unknown';
-            html += `<span class="vw ${status}" data-word="${escHtml(t.key)}" data-original="${escHtml(t.text)}" onclick="onWordClick(this, event)">${escHtml(t.text)}</span>`;
+            html += `<span class="vw ${status}" data-word="${escHtml(t.key)}" onclick="onWordClick(this, event)">${escHtml(t.text)}</span>`;
         }
     }
     html += '</div>';
-
     reader.innerHTML = html;
 }
 
-// 渲染输入区（新文章）
 function showInputArea() {
     const reader = document.getElementById('vocabReader');
     if (!reader) return;
@@ -359,70 +308,53 @@ function showInputArea() {
     document.getElementById('newArticleText').focus();
 }
 
-// 分析新文章（提交到后端保存，然后加载显示）
 async function analyzeArticle() {
     const textarea = document.getElementById('newArticleText');
     if (!textarea) return;
     const content = textarea.value.trim();
     if (!content) return;
-
     try {
-        const res = await fetch('/api/articles', {
+        const data = await (await apiFetch('/api/articles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content })
-        });
-        const data = await res.json();
-        if (data.id) {
-            // 保存成功，加载并显示
-            await loadArticles();
-            await loadVocabStats();
-            await loadArticle(data.id);
-        } else {
-            alert('保存失败: ' + (data.error || '未知错误'));
-        }
-    } catch(e) {
-        console.warn('[vocab] 分析失败:', e);
-        alert('网络错误');
+            body: JSON.stringify({ content }),
+        })).json();
+        await loadArticles();
+        loadVocabStats();
+        await loadArticle(data.id);
+    } catch (e) {
+        alert('保存失败: ' + e.message);
     }
 }
 
-// 单词点击：切换状态
-// mastered → familiar → mastered（白↔黄循环）
-// unknown → familiar（红→黄，再点黄→白）
-async function onWordClick(el, event) {
+// 状态切换：unknown/mastered → familiar → mastered（红/白 → 黄 → 白）
+async function onWordClick(el) {
     const word = el.dataset.word;
-    const isMastered = el.classList.contains('mastered');
-    const isFamiliar = el.classList.contains('familiar');
-    const isUnknown = el.classList.contains('unknown');
+    const prev = el.classList.contains('mastered') ? 'mastered'
+        : el.classList.contains('familiar') ? 'familiar' : 'unknown';
+    const next = (prev === 'familiar') ? 'mastered' : 'familiar';
 
-    // 状态切换：白→黄→白，红→黄→白
-    let nextStatus;
-    if (isMastered || isUnknown) {
-        nextStatus = 'familiar';
-    } else {
-        nextStatus = 'mastered';
-    }
-
-    // 全局更新：文章中所有同名单词一起变色
-    document.querySelectorAll(`.vw[data-word="${CSS.escape(word)}"]`).forEach(span => {
+    const spans = document.querySelectorAll(`.vw[data-word="${CSS.escape(word)}"]`);
+    const paint = (s) => spans.forEach(span => {
         span.classList.remove('mastered', 'familiar', 'unknown');
-        span.classList.add(nextStatus);
+        span.classList.add(s);
     });
+    paint(next);
 
-    // 发送到后端持久化
     try {
-        await fetch('/api/words', {
+        await apiFetch('/api/words', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ word, status: nextStatus })
+            body: JSON.stringify({ word, status: next }),
         });
-        loadVocabStats();
-    } catch(e) { console.warn('[vocab] 状态更新失败:', e); }
+        loadVocabStatsSoon();
+    } catch (e) {
+        paint(prev);   // 失败回滚，避免界面撒谎
+        console.warn('[vocab] 状态更新失败:', e.message);
+    }
 }
 
-// ========== 服务导航（黄页）模块 ==========
-// 数据源：public/nav.json（纯静态；增删服务只改那个文件，不必动代码）
+// ========== 服务导航（黄页）==========
 const NAV_URL = 'nav.json';
 let navData = null;
 
@@ -437,21 +369,18 @@ async function loadNavData() {
 function navItemHtml(it) {
     const tags = (it.tags || []).map(t => `<span class="ni-tag">${escHtml(t)}</span>`).join('');
     const shown = String(it.url || '').replace(/^https?:\/\//, '');
-    // 端口：对外入口（port）与回环上游（upstream）都直接显示在卡片上
     const ports = (it.port || it.upstream)
         ? `<span class="ni-ports">${it.port ? `<b>${escHtml(it.port)}</b>` : ''}${it.upstream ? `<i>\u21b3${escHtml(it.upstream)}</i>` : ''}</span>`
         : '';
-    return `<a class="ni" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener">
+    return `<a class="ni" href="${escHtml(safeUrl(it.url))}" target="_blank" rel="noopener">
         <span class="ni-top"><span class="ni-name">${escHtml(it.name || '')}${tags}</span>${ports}</span>
         <span class="ni-desc">${escHtml(it.desc || '')}</span>
         <span class="ni-url">${escHtml(shown)}</span>
     </a>`;
 }
 
-// 渲染服务导航（黄页）：本分组卡片 + 底部端口约定
 async function renderNavApp(container) {
     container.innerHTML = '<div class="nav-app"><div class="nav-loading">载入服务导航…</div></div>';
-
     let data;
     try {
         data = await loadNavData();
@@ -459,7 +388,7 @@ async function renderNavApp(container) {
         container.innerHTML = `<div class="nav-app"><div class="nav-loading">加载 nav.json 失败：${escHtml(e.message)}</div></div>`;
         return;
     }
-    if (currentApp !== 'nav') return;   // 期间已切到别的应用，丢弃过期渲染
+    if (currentApp !== 'nav') return;   // 期间已切走，丢弃过期渲染
 
     const groups = (data.groups || []).map(g => `
         <section class="nav-group">
@@ -478,10 +407,8 @@ async function renderNavApp(container) {
         </div>`;
 }
 
-// ========== 信息聚合模块 ==========
-// 每条信息源在后端各有独立探针（src/agg/sources.js）；前端只负责展示 + 触发刷新。
-// “新”= 该条目在本地库里首次出现（后端 agg_item 表的 first_seen）。
-const aggState = { autoRefreshed: false, busy: false };
+// ========== 信息聚合 ==========
+const aggState = { data: null, autoRefreshed: false, busy: false, sourceBusy: new Set() };
 
 function updateAggBadge(n) {
     const txt = n > 0 ? String(n) : '';
@@ -494,60 +421,56 @@ function updateAggBadge(n) {
 function aggTimeAgo(iso) {
     if (!iso) return '从未';
     const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (!Number.isFinite(s)) return '从未';
     if (s < 60) return '刚刚';
     if (s < 3600) return `${Math.floor(s / 60)} 分钟前`;
     if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
     return `${Math.floor(s / 86400)} 天前`;
 }
 
-async function aggFetch(refresh, source) {
-    const qs = source ? `?source=${encodeURIComponent(source)}` : '';
-    const res = await fetch(`/api/agg${refresh ? '/refresh' : ''}${qs}`, {
-        method: refresh ? 'POST' : 'GET',
-        headers: { 'Content-Type': 'application/json' },
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+async function aggFetch(refresh = false, source = null, force = false) {
+    const qs = new URLSearchParams();
+    if (source) qs.set('source', source);
+    if (force) qs.set('force', '1');
+    const url = `/api/agg${refresh ? '/refresh' : ''}${qs.toString() ? '?' + qs : ''}`;
+    const res = await apiFetch(url, { method: refresh ? 'POST' : 'GET' });
     return res.json();
 }
 
-// 板块定义：探针（新模型/新 LoRA）在上，热门话题（热榜/趋势）在下
 const AGG_BOARDS = [
     { id: 'probe', name: '探针', sub: 'HuggingFace · civarchive · 版本更新 —— 新模型 / 新 LoRA / llama.cpp·fastllm 版本' },
     { id: 'topic', name: '热门话题', sub: '中文热榜 · 外网趋势 —— 头条热帖与最热趋势' },
 ];
 
-// 探针卡片的上色：最新条目是今天 → 绿框；一周内 → 黄框；更早 → 默认
 function aggFreshness(items) {
     const newest = (items || []).map(i => i.createdAt).filter(Boolean).sort().pop();
     if (!newest) return '';
     const d = new Date(newest);
-    if (isNaN(d)) return '';
+    if (Number.isNaN(d.getTime())) return '';
     const now = new Date();
     const dayOf = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
     const diff = Math.round((dayOf(now) - dayOf(d)) / 86400000);
-    if (diff <= 0) return 'fresh';      // 今天
-    if (diff < 7) return 'recent';      // 一周内
+    if (diff <= 0) return 'fresh';
+    if (diff < 7) return 'recent';
     return '';
 }
 
-// 条目日期按**本地时区**显示（与绿框/黄框的判定口径一致）
 function aggLocalDay(iso) {
     if (!iso) return '';
     const d = new Date(iso);
-    if (isNaN(d)) return String(iso).slice(5, 10);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(5, 10);
     const p = n => String(n).padStart(2, '0');
     return `${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function aggItemHtml(it) {
-    // 紧凑单行：新标 + 标题（截断） + 日期/关键元信息靠右
     const meta = (it.meta || []).slice(0, 2).map(m => `<span class="agg-mt">${escHtml(m)}</span>`).join('');
     const when = aggLocalDay(it.createdAt);
-    const rank = it.ord != null ? `<span class="agg-rank">${it.ord}</span>` : '';
-    return `<a class="agg-it" href="${escHtml(it.url || '#')}" target="_blank" rel="noopener" title="${escHtml((it.meta || []).join(' · '))}">
+    const rank = it.ord != null ? `<span class="agg-rank">${escHtml(it.ord)}</span>` : '';
+    return `<a class="agg-it" href="${escHtml(safeUrl(it.url))}" target="_blank" rel="noopener" title="${escHtml((it.meta || []).join(' · '))}">
         ${rank}${it.isNew ? '<span class="agg-new">新</span>' : ''}
         <span class="agg-t">${escHtml(it.title || it.id)}</span>
-        <span class="agg-meta"><span class="agg-mt dim">${when}</span>${meta}</span>
+        <span class="agg-meta"><span class="agg-mt dim">${escHtml(when)}</span>${meta}</span>
     </a>`;
 }
 
@@ -564,11 +487,11 @@ function aggSourceHtml(s) {
                 ? s.items.map(aggItemHtml).join('')
                 : '<div class="agg-empty">暂无条目</div>');
     const fresh = s.board === 'topic' ? '' : aggFreshness(s.items);
-    return `<section class="agg-src${fresh ? ' ' + fresh : ''}">
+    return `<section class="agg-src${fresh ? ' ' + fresh : ''}" data-src="${escHtml(s.id)}">
         <header class="agg-hd" title="${escHtml(s.note || '')}">
             <span class="agg-nm">${escHtml(s.label)}</span>${badge}
             <span class="agg-grow"></span>
-            <span class="agg-ts">${aggTimeAgo(s.fetchedAt)}</span>
+            <span class="agg-ts">${aggTimeAgo(s.lastOkAt || s.fetchedAt)}</span>
             <button class="agg-rf" onclick="refreshAgg('${s.id}')" title="只刷新这一项">&#x21BB;</button>
         </header>
         <div class="agg-list">${body}</div>
@@ -576,12 +499,17 @@ function aggSourceHtml(s) {
     </section>`;
 }
 
+function aggHeaderText(data) {
+    const totalNew = data.totalNew || 0;
+    return `${totalNew > 0 ? totalNew + ' 条未读' : '暂无未读'} · 上次刷新 ${aggTimeAgo(data.lastRefreshAt)}`;
+}
+
 function drawAgg(container, data) {
-    const totalNew = data.sources.reduce((n, s) => n + (s.newCount || 0), 0);
+    aggState.data = data;
     container.innerHTML = `<div class="agg-app">
         <header class="agg-top">
             <span class="agg-title">&#x1F4E1; 信息聚合</span>
-            <span class="agg-sub">${totalNew > 0 ? totalNew + ' 条新' : '暂无新条目'} · 上次刷新 ${aggTimeAgo(data.lastRefreshAt)}</span>
+            <span class="agg-sub" id="aggSub">${escHtml(aggHeaderText(data))}</span>
             <span class="agg-grow"></span>
             <button class="vb" onclick="refreshAgg()">全部刷新</button>
         </header>
@@ -600,6 +528,25 @@ function drawAgg(container, data) {
             </section>`;
         }).join('')}
     </div>`;
+    updateAggBadge(data.totalNew || 0);
+}
+
+// 单源刷新后只替换那一张卡，避免整页重绘/滚动跳回顶部
+function replaceAggSourceCard(src) {
+    const screen = getActiveScreen();
+    const el = screen.querySelector(`.agg-src[data-src="${CSS.escape(src.id)}"]`);
+    if (el) el.outerHTML = aggSourceHtml(src);
+}
+
+function applyAggSnapshot(data, only) {
+    aggState.data = data;
+    if (currentApp !== 'agg') return;   // 已离开聚合页：不要把未读数写回角标
+    for (const s of data.sources) {
+        if (!only || s.id === only) replaceAggSourceCard(s);
+    }
+    const sub = document.getElementById('aggSub');
+    if (sub) sub.textContent = aggHeaderText(data);
+    updateAggBadge(data.totalNew || 0);
 }
 
 async function renderAggApp(container) {
@@ -613,32 +560,51 @@ async function renderAggApp(container) {
     }
     if (currentApp !== 'agg') return;
     drawAgg(container, data);
-    updateAggBadge(data.sources.reduce((n, s) => n + (s.newCount || 0), 0));
 
-    // 首次进入且数据过期/未探测 → 自动跑一次（只自动一次，避免反复打外部站点）
-    const need = data.sources.some(s => s.stale || s.status === 'idle');
-    if (need && !aggState.autoRefreshed) {
+    // 先渲染缓存，再按源增量刷新（并发 3），每完成一个就回填一张卡
+    const need = data.sources
+        .filter(s => s.status !== 'unconfigured' && (s.stale || s.status === 'idle'))
+        .map(s => s.id);
+    if (need.length && !aggState.autoRefreshed) {
         aggState.autoRefreshed = true;
-        try {
-            const fresh = await aggFetch(true);
-            if (currentApp === 'agg') {
-                drawAgg(container, fresh);
-                updateAggBadge(fresh.sources.reduce((n, s) => n + (s.newCount || 0), 0));
+        const queue = [...need];
+        await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+            for (;;) {
+                const id = queue.shift();
+                if (!id) return;
+                await refreshAgg(id);
             }
-        } catch (e) { /* 自动刷新失败就保留缓存视图 */ }
+        }));
     }
 }
 
 async function refreshAgg(source) {
+    if (source) {
+        if (aggState.sourceBusy.has(source)) return;
+        aggState.sourceBusy.add(source);
+        const btn = getActiveScreen().querySelector(`.agg-src[data-src="${CSS.escape(source)}"] .agg-rf`);
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            applyAggSnapshot(await aggFetch(true, source), source);
+        } catch (e) {
+            const cached = aggState.data?.sources.find(s => s.id === source);
+            if (cached) replaceAggSourceCard(cached);   // 恢复按钮状态
+            console.warn(`[agg] ${source} 刷新失败:`, e.message);
+        } finally {
+            aggState.sourceBusy.delete(source);
+        }
+        return;
+    }
+
     if (aggState.busy) return;
     aggState.busy = true;
     const screen = getActiveScreen();
     screen.querySelectorAll('.agg-rf').forEach(b => { b.disabled = true; b.textContent = '…'; });
     try {
-        const data = await aggFetch(true, source || null);
-        drawAgg(screen, data);
-        updateAggBadge(data.sources.reduce((n, s) => n + (s.newCount || 0), 0));
+        const data = await aggFetch(true, null, true);
+        if (currentApp === 'agg') drawAgg(screen, data);
     } catch (e) {
+        if (aggState.data && currentApp === 'agg') drawAgg(screen, aggState.data);
         alert('刷新失败: ' + e.message);
     } finally {
         aggState.busy = false;
@@ -646,23 +612,35 @@ async function refreshAgg(source) {
     }
 }
 
-// ========== 项目台账模块 ==========
-// 事实源：zpa 仓库的清单（PROJECTS.md / IDEAS-RANKING.md）→ 「从清单导入」按名字幂等 upsert；
-// 库里可编辑：状态 / 下一步 / 备注 / 想法评分与判决。git 派生字段靠「同步 git」刷新。
-const pjState = { data: null, filter: { kind: '', layer: '', grade: '', q: '' }, editing: null, busy: false };
+function ackAggRead() {
+    if (!aggState.data) return;
+    apiFetch('/api/agg/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+    }).catch(() => {});
+    aggState.data.sources.forEach(s => { s.newCount = 0; });
+    updateAggBadge(0);
+}
+
+// ========== 项目台账 ==========
+const pjState = { data: null, filter: { kind: '', layer: '', grade: '', q: '' }, busy: false };
 const PJ_STATUS = ['🟢活跃', '🟡按需', '🔵完成待维护', '⚪暂停', '🔴欠账', '🧩上游', '📦归档', '💭想法'];
 const PJ_LAYERS = ['L0 在做', 'L1 活跃', 'L2 按需', 'L3 想法', 'L4 归档'];
 const PJ_KINDS = [['', '全部'], ['repo', '工程'], ['infra', '基建'], ['upstream', '上游'], ['data', '数据'], ['idea', '想法']];
 
 async function pjApi(path, method = 'GET', body) {
-    const res = await fetch(`/api/projects${path}`, {
-        method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
+    const res = await apiFetch(`/api/projects${path}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.json();
 }
 
-function pjChip(txt, cls) { return txt ? `<span class="pj-chip ${cls || ''}">${escHtml(txt)}</span>` : ''; }
+function pjChip(txt, cls) {
+    return txt ? `<span class="pj-chip ${cls || ''}">${escHtml(txt)}</span>` : '';
+}
 
 function pjRowHtml(it) {
     const sub = [it.stack, it.deploy, it.ports, it.next_step].filter(Boolean).join(' · ');
@@ -677,7 +655,7 @@ function pjRowHtml(it) {
            <button class="pj-v ${it.verdict === 'killed' ? 'on' : ''}" onclick="pjVerdict(${it.id},'killed')" title="判死">死</button>` : '';
     return `<div class="pj-row" id="pj-row-${it.id}">
         <div class="pj-main">
-            ${it.grade ? `<span class="pj-grade g${it.grade}">${it.grade}</span>` : ''}
+            ${it.grade ? `<span class="pj-grade g${escHtml(it.grade)}">${escHtml(it.grade)}</span>` : ''}
             <span class="pj-name">${escHtml(it.name)}</span>
             ${pjChip(it.status)}
             ${it.layer ? pjChip(it.layer, 'dim') : ''}
@@ -702,7 +680,10 @@ function drawProjects() {
     if (f.kind) items = items.filter(i => i.kind === f.kind);
     if (f.layer) items = items.filter(i => i.layer === f.layer);
     if (f.grade) items = items.filter(i => i.grade === f.grade);
-    if (f.q) { const q = f.q.toLowerCase(); items = items.filter(i => JSON.stringify(i).toLowerCase().includes(q)); }
+    if (f.q) {
+        const q = f.q.toLowerCase();
+        items = items.filter(i => JSON.stringify(i).toLowerCase().includes(q));
+    }
 
     const groups = [];
     for (const it of items) {
@@ -712,7 +693,8 @@ function drawProjects() {
         x.items.push(it);
     }
     const st = pjState.data.stats;
-    document.getElementById('pjSub').textContent =
+    const el = document.getElementById('pjSub');
+    if (el) el.textContent =
         `${st.total} 条 · 在办 ${(st.byLayer.find(x => x.k === 'L0 在做') || {}).n || 0} · 想法 ${st.ideas}（待判 ${st.ideasNoVerdict}）· 风险 ${st.reposWithRisk}`;
     box.innerHTML = groups.map(g =>
         `<div class="pj-group"><h3 class="pj-gt">${escHtml(g.name)} <span class="pj-cnt">${g.items.length}</span></h3>${g.items.map(pjRowHtml).join('')}</div>`
@@ -722,7 +704,9 @@ function drawProjects() {
 async function renderProjectsApp(container) {
     container.innerHTML = '<div class="pj-app"><div class="agg-loading">载入项目台账…</div></div>';
     let data;
-    try { data = await pjApi(''); } catch (e) {
+    try {
+        data = await pjApi('');
+    } catch (e) {
         container.innerHTML = `<div class="pj-app"><div class="agg-loading">读取失败：${escHtml(e.message)}</div></div>`;
         return;
     }
@@ -737,10 +721,10 @@ async function renderProjectsApp(container) {
             <button class="vb" onclick="pjImport()">从清单导入</button>
         </header>
         <div class="pj-filters">
-            <select class="vb" onchange="pjSet('kind', this.value)">${PJ_KINDS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
-            <select class="vb" onchange="pjSet('layer', this.value)"><option value="">全部层</option>${PJ_LAYERS.map(l => `<option>${l}</option>`).join('')}</select>
-            <select class="vb" onchange="pjSet('grade', this.value)"><option value="">全部档</option>${['A', 'B', 'C', 'D'].map(g => `<option>${g}</option>`).join('')}</select>
-            <input class="pj-q" placeholder="搜索名称/备注/下一步…" oninput="pjSet('q', this.value)">
+            <select class="vb" onchange="pjSet('kind', this.value)">${PJ_KINDS.map(([v, t]) => `<option value="${escHtml(v)}" ${pjState.filter.kind === v ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}</select>
+            <select class="vb" onchange="pjSet('layer', this.value)"><option value="">全部层</option>${PJ_LAYERS.map(l => `<option ${pjState.filter.layer === l ? 'selected' : ''}>${escHtml(l)}</option>`).join('')}</select>
+            <select class="vb" onchange="pjSet('grade', this.value)"><option value="">全部档</option>${['A', 'B', 'C', 'D'].map(g => `<option ${pjState.filter.grade === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
+            <input class="pj-q" placeholder="搜索名称/备注/下一步…" value="${escHtml(pjState.filter.q)}" oninput="pjSet('q', this.value)">
         </div>
         <div id="pjBody"></div>
     </div>`;
@@ -748,11 +732,17 @@ async function renderProjectsApp(container) {
     updatePjBadge(data.stats.ideasNoVerdict);
 }
 
-function pjSet(k, v) { pjState.filter[k] = v; drawProjects(); }
+function pjSet(k, v) {
+    pjState.filter[k] = v;
+    drawProjects();
+}
 
 function updatePjBadge(n) {
     const txt = n > 0 ? String(n) : '';
-    ['badgePj', 'badgePjL'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = txt; });
+    ['badgePj', 'badgePjL'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    });
 }
 
 async function pjReload() {
@@ -762,38 +752,56 @@ async function pjReload() {
 }
 
 async function pjVerdict(id, v) {
-    await pjApi('/' + id, 'PATCH', { verdict: v });
-    const it = pjState.data.items.find(x => x.id === id);
-    if (it) it.verdict = v;
-    const row = document.getElementById('pj-row-' + id);
-    if (row) row.outerHTML = pjRowHtml(it);
-    updatePjBadge(pjState.data.items.filter(x => x.kind === 'idea' && !x.verdict).length);
+    try {
+        await pjApi('/' + id, 'PATCH', { verdict: v });
+        const it = pjState.data.items.find(x => x.id === id);
+        if (it) it.verdict = v;
+        const row = document.getElementById('pj-row-' + id);
+        if (row && it) row.outerHTML = pjRowHtml(it);
+        updatePjBadge(pjState.data.items.filter(x => x.kind === 'idea' && !x.verdict).length);
+    } catch (e) { alert('更新失败: ' + e.message); }
 }
 
 async function pjSync() {
-    if (pjState.busy) return; pjState.busy = true;
-    try { const r = await pjApi('/sync', 'POST'); await pjReload(); alert(`已同步 ${r.synced} 个仓库的 git 状态`); }
-    catch (e) { alert('同步失败: ' + e.message); } finally { pjState.busy = false; }
+    if (pjState.busy) return;
+    pjState.busy = true;
+    try {
+        const r = await pjApi('/sync', 'POST');
+        await pjReload();
+        alert(`已同步 ${r.synced} 个仓库的 git 状态${r.failed?.length ? `（失败 ${r.failed.length}: ${r.failed.join(', ')}）` : ''}`);
+    } catch (e) { alert('同步失败: ' + e.message); } finally { pjState.busy = false; }
 }
 
 async function pjImport() {
-    if (pjState.busy) return; pjState.busy = true;
-    try { const r = await pjApi('/import', 'POST'); await pjReload(); alert(`已从 zpa 清单导入 ${r.imported} 条（按名字幂等）`); }
-    catch (e) { alert('导入失败: ' + e.message); } finally { pjState.busy = false; }
+    if (pjState.busy) return;
+    pjState.busy = true;
+    try {
+        const r = await pjApi('/import', 'POST');
+        await pjReload();
+        alert(`已导入 ${r.imported} 条（按名字幂等）\n来源：${r.source}`);
+    } catch (e) { alert('导入失败: ' + e.message); } finally { pjState.busy = false; }
 }
 
 function pjEdit(id) {
     const it = pjState.data.items.find(x => x.id === id);
     const box = document.getElementById('pj-edit-' + id);
-    if (!box) return;
+    if (!it || !box) return;
     if (box.dataset.open === '1') { box.innerHTML = ''; box.dataset.open = '0'; return; }
     box.dataset.open = '1';
-    const sel = (name, cur, opts) => `<select data-f="${name}">${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+
+    const sel = (name, cur, opts0) => {
+        const opts = [...opts0];
+        if (cur && !opts.includes(cur)) opts.unshift(cur);   // 兼容库里的历史值
+        return `<select data-f="${name}">${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${escHtml(o)}</option>`).join('')}</select>`;
+    };
     box.innerHTML = `<div class="pj-editor">
         <label>下一步 / 交付物<input data-f="next_step" value="${escHtml(it.next_step || '')}"></label>
         <label>状态 ${sel('status', it.status || '', PJ_STATUS)}</label>
         <label>层 ${sel('layer', it.layer || '', PJ_LAYERS)}</label>
-        ${it.kind === 'idea' ? `<label>评估 F/C/I <input data-f="feasibility" type="number" min="1" max="5" value="${it.feasibility ?? ''}" style="width:44px"> <input data-f="completeness" type="number" min="1" max="5" value="${it.completeness ?? ''}" style="width:44px"> <input data-f="importance" type="number" min="1" max="5" value="${it.importance ?? ''}" style="width:44px"></label>` : ''}
+        ${it.kind === 'idea' ? `<label>评估 F/C/I
+            <input data-f="feasibility" type="number" min="1" max="5" value="${it.feasibility ?? ''}" style="width:44px">
+            <input data-f="completeness" type="number" min="1" max="5" value="${it.completeness ?? ''}" style="width:44px">
+            <input data-f="importance" type="number" min="1" max="5" value="${it.importance ?? ''}" style="width:44px"></label>` : ''}
         <label>风险 <input data-f="risk" value="${escHtml(it.risk || '')}"></label>
         <label>备注 <textarea data-f="note" rows="2">${escHtml(it.note || '')}</textarea></label>
         <div class="pj-actions">
@@ -805,75 +813,69 @@ function pjEdit(id) {
 
 async function pjSave(id) {
     const box = document.getElementById('pj-edit-' + id);
+    if (!box) return;
     const patch = {};
-    box.querySelectorAll('[data-f]').forEach(el => { patch[el.dataset.f] = el.value === '' ? null : el.value; });
-    ['feasibility', 'completeness', 'importance'].forEach(k => { if (patch[k] != null) patch[k] = Number(patch[k]); });
-    await pjApi('/' + id, 'PATCH', patch);
-    box.dataset.open = '0'; box.innerHTML = '';
-    await pjReload();
+    box.querySelectorAll('[data-f]').forEach(el => {
+        patch[el.dataset.f] = el.value === '' ? null : el.value;
+    });
+    for (const k of ['feasibility', 'completeness', 'importance']) {
+        if (patch[k] != null) patch[k] = Number(patch[k]);
+    }
+    try {
+        await pjApi('/' + id, 'PATCH', patch);
+        box.dataset.open = '0';
+        box.innerHTML = '';
+        await pjReload();
+    } catch (e) { alert('保存失败: ' + e.message); }
 }
 
 async function pjDelete(id) {
     if (!confirm('确认从台账删除这一条？（只删库里的记录，不影响仓库/笔记）')) return;
-    await pjApi('/' + id, 'DELETE');
-    await pjReload();
+    try {
+        await pjApi('/' + id, 'DELETE');
+        await pjReload();
+    } catch (e) { alert('删除失败: ' + e.message); }
 }
 
-// ========== 工具函数 ==========
-// HTML 转义
-function escHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
+// ========== 方向检测与布局 ==========
+function isMobile() { return window.innerWidth < 769; }
 
-// 日期格式化（ISO → 短格式）
-function formatDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${m}-${day}`;
-}
+let lastMobile = null;
 
-// ========== 方向检测 ==========
-function isMobile(){return window.innerWidth<769}
+function layout() {
+    const mobile = isMobile();
+    const crossed = lastMobile !== null && lastMobile !== mobile;
+    lastMobile = mobile;
 
-// ========== 布局切换 ==========
-function layout(){
-    const screen = getActiveScreen();
-
-    if(isMobile()){
-        scroller.style.display='flex';
-        landscape.style.display='none';
-        fitPortrait();
-    }else{
-        scroller.style.display='none';
-        landscape.style.display='flex';
-        fitLandscape();
+    if (mobile) {
+        scroller.style.display = 'flex';
+        landscape.style.display = 'none';
+    } else {
+        scroller.style.display = 'none';
+        landscape.style.display = 'flex';
     }
+
+    // 跨断点（手机旋转/窗口缩放）后，新活跃的那块屏可能是空的 → 重渲染当前应用
+    if (crossed && currentApp) renderApp(getActiveScreen(), currentApp);
+
+    if (mobile) fitPortrait();
+    else fitLandscape();
 }
 
-// ========== 竖屏布局计算 ==========
-// 有应用时：主显示区宽度=视口宽，高度自适应内容（最小360px）
-// 无应用时：保持 1:1 正方形
-function fitPortrait(){
-    const vw=window.innerWidth;
-    const vh=window.innerHeight;
+function fitPortrait() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const screen = screenP;
 
     if (currentApp) {
-        // 有应用：宽度撑满，高度自适应（最小360px）
         screen.style.width = (vw - 16) + 'px';
         screen.style.height = Math.max(360, vh - 100) + 'px';
         screen.style.margin = '8px auto';
         screen.style.position = 'relative';
         screen.style.top = '';
         screen.style.left = '';
-        // 调整 spacer 确保能滚动
         spacer.style.height = Math.max(0, vh - panelP.getBoundingClientRect().height - screen.offsetHeight + 100) + 'px';
     } else {
-        // 无应用：1:1 正方形
         const s = Math.min(vw, vh) - 16;
         if (s <= 0) return;
         screen.style.width = s + 'px';
@@ -887,26 +889,19 @@ function fitPortrait(){
     }
 }
 
-// ========== 横屏布局计算 ==========
-// 有应用时：主显示区撑满右栏
-// 无应用时：1:1 正方形居中
-function fitLandscape(){
-    const vw=window.innerWidth;
-    const vh=window.innerHeight;
+function fitLandscape() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const screen = screenL;
 
     if (currentApp) {
-        // 有应用：撑满右栏（减去 padding）
-        const w = lsRight.clientWidth - 16;
-        const h = lsRight.clientHeight - 16;
-        screen.style.width = w + 'px';
-        screen.style.height = h + 'px';
+        screen.style.width = (lsRight.clientWidth - 16) + 'px';
+        screen.style.height = (lsRight.clientHeight - 16) + 'px';
         screen.style.position = 'absolute';
         screen.style.top = '8px';
         screen.style.left = '8px';
         screen.style.margin = '0';
     } else {
-        // 无应用：1:1 居中
         const s = Math.min(vw, vh) - 16;
         if (s <= 0) return;
         screen.style.width = s + 'px';
@@ -919,32 +914,53 @@ function fitLandscape(){
 }
 
 // ========== 竖屏滚动收起面板 ==========
-let panelCollapsed=false;
-let savedPanelH=0;
+let panelCollapsed = false;
+let savedPanelH = 0;
 
-scroller.addEventListener('scroll',()=>{
-    if(!isMobile())return;
-    if(!savedPanelH) savedPanelH=panelP.scrollHeight||panelP.getBoundingClientRect().height;
-    if(scroller.scrollTop>savedPanelH && !panelCollapsed){
-        panelCollapsed=true;
+scroller.addEventListener('scroll', () => {
+    if (!isMobile()) return;
+    if (!savedPanelH) savedPanelH = panelP.scrollHeight || panelP.getBoundingClientRect().height;
+    if (scroller.scrollTop > savedPanelH && !panelCollapsed) {
+        panelCollapsed = true;
         panelP.classList.add('collapsed');
-    }else if(scroller.scrollTop<=savedPanelH && panelCollapsed){
-        panelCollapsed=false;
+    } else if (scroller.scrollTop <= savedPanelH && panelCollapsed) {
+        panelCollapsed = false;
         panelP.classList.remove('collapsed');
     }
 });
 
 // ========== 初始化 ==========
-// 默认落地页：服务导航（黄页）——18100 打开即见
+renderPanels();
+lastMobile = isMobile();
 switchApp('nav');
 layout();
 
-// Tools 角标：信息聚合的「新条目」数 + 项目台账的「待判想法」数（本地接口；失败静默）
-aggFetch(false).then(d => updateAggBadge(d.sources.reduce((n, s) => n + (s.newCount || 0), 0))).catch(() => {});
+// Tools 角标：聚合未读数 + 项目待判想法数（失败静默）
+aggFetch(false).then(d => updateAggBadge(d.totalNew || 0)).catch(() => {});
 pjApi('').then(d => updatePjBadge(d.stats.ideasNoVerdict)).catch(() => {});
-window.addEventListener('resize',()=>{
-    panelCollapsed=false;savedPanelH=0;
+
+window.addEventListener('resize', () => {
+    panelCollapsed = false;
+    savedPanelH = 0;
     panelP.classList.remove('collapsed');
     layout();
 });
 new ResizeObserver(layout).observe(document.documentElement);
+
+// inline onclick 需要全局可见（module 作用域默认不挂 window）
+Object.assign(window, {
+    switchApp,
+    showInputArea,
+    loadArticle,
+    deleteArticle,
+    analyzeArticle,
+    onWordClick,
+    refreshAgg,
+    pjSet,
+    pjVerdict,
+    pjEdit,
+    pjSave,
+    pjDelete,
+    pjSync,
+    pjImport,
+});

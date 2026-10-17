@@ -10,7 +10,8 @@
   "source": "zpa/PROJECTS.md §一",
   "risk": "只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/zdashboard",
-  "layer": "L0 在做"
+  "layer": "L0 在做",
+  "pinned": 1
  },
  {
   "name": "zup / comfy-web",
@@ -23,7 +24,8 @@
   "source": "zpa/PROJECTS.md §一",
   "risk": "测试红（建议：改成按工作流名定位）",
   "repo_path": "/home/tony/zrepo/zup",
-  "layer": "L0 在做"
+  "layer": "L0 在做",
+  "pinned": 1
  },
  {
   "name": "anotemanager (anm)",
@@ -36,7 +38,8 @@
   "source": "zpa/PROJECTS.md §一",
   "risk": "只有单端（建议：补 pushurl 两条） / 只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/anotemanager",
-  "layer": "L0 在做"
+  "layer": "L0 在做",
+  "pinned": 1
  },
  {
   "name": "avocal",
@@ -135,7 +138,8 @@
   "next_step": "见 PORTFOLIO 维护规则",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/zpa",
-  "layer": "L0 在做"
+  "layer": "L0 在做",
+  "pinned": 1
  },
  {
   "name": "deepseek-harness (dsh)",
@@ -169,7 +173,8 @@
   "source": "zpa/PROJECTS.md §二",
   "risk": "只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/zscript",
-  "layer": "L0 在做"
+  "layer": "L0 在做",
+  "pinned": 1
  },
  {
   "name": "PORTS.md（zpa）",
@@ -215,7 +220,7 @@
   "board": "上游",
   "status": "🧩上游",
   "note": "本地 LLM 推理（llama-server）",
-  "deploy": "zmain 0.0.0.0:8080（明文，按需启动；未迁 28xxx）",
+  "deploy": "zmain 0.0.0.0:8080（明文，按需启动）",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/llama.cpp",
   "layer": "L2 按需"
@@ -373,7 +378,7 @@
   "importance": 5,
   "score": 13,
   "grade": "A",
-  "note": "定价工具，服务你自己的经营；有公式+调研",
+  "note": "⏸ 2026-10-15 作者降级为想法级：不进本季三角；html 工具未落盘，仅存公式+调研（D 因子方案保留）",
   "source": "znote/idea/CPM-Pricing/readme.md",
   "layer": "L3 想法"
  },

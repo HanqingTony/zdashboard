@@ -1,102 +1,125 @@
 # zdashboard
 
-> **当前版本：v0.1.6** · [路线图](docs/ROADMAP.md) · [v0.1.6 更新记录](docs/v0.1.6.md) · [v0.1.5 更新记录](docs/v0.1.5.md) · [v0.1.4 更新记录](docs/v0.1.4.md) · [v0.1.3 更新记录](docs/v0.1.3.md) · [v0.1.2 更新记录](docs/v0.1.2.md) · [v0.1.1 更新记录](docs/v0.1.1.md) · [v0.1.0 更新记录](docs/v0.1.0.md)
+> **当前版本：v0.2.0** · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
-个人多功能仪表盘，深色主题，横竖屏自适应，单文件 SPA。
+个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
 ## 功能模块
 
-### 项目台账
+### 服务导航（黄页）
 
-Tools 里的 **📋 项目台账**：把 zpa 仓库的项目组合清单落进 `zdb.db`，在面板里看/改/跟踪。
+打开 `https://<host>:18100/` 的默认落地页。
 
-- 表 `zproject`（126 条 = 工程·基建·上游·数据 32 + 想法 94）；页面按板块分组，显示状态/层/git 状态/风险
-- **事实源 = `zpa` 的清单**（`PROJECTS.md` / `IDEAS-RANKING.md` / `PORTFOLIO.md`）→「从清单导入」按名字幂等 upsert，**不覆盖**你在库里改的状态/下一步/备注
-- 「同步 git」刷新 19 个仓库的最近提交/脏文件/未推送
-- 想法带 F/C/I 评分与 A/B/C/D 档 + **判决按钮（活/搁/死）**，Tools 角标 = 待判想法数
+- **内容全部在 `public/nav.json`**：标题/分组/卡片/底部说明；增删服务只改 JSON
+- 卡片字段：`name` / `url` / `desc` / `port`（对外入口 181xx）/ `upstream`（回环上游 28xxx）/ `tags`
+- 渲染：`renderNavApp()`；样式：`style.css` 的「服务导航（黄页）模块」段
+- 端口规范见 zpa 仓库 `PORTS.md`；新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
 
 ### 信息聚合
 
-Tools 里的 **📡 信息聚合**：每个关注对象一个**独立探针**，结果落库并标注「新」条目——打开即知「有没有新东西」。
+每个关注对象一个**独立探针**，结果落库；某个源超时/改版只影响它自己。
 
-| 分组 | 源 | 关注点 |
+| 板块 | 分组 | 源 |
 |---|---|---|
-| HuggingFace | `Qwen` / `ornith-ai` / `Accio-Lab` | 是否发了新模型 |
-| civarchive | `minimax h3` / `qwen image 2.1` | 是否出了新 LoRA（按底模归一化匹配） |
-| 中文热榜 | bilibili 热门 / 微博热搜 / 知乎热榜 / 抖音热榜 | 头条热帖（官方接口，按榜单排名显示前 10） |
-| 外网趋势 | Google Trends / Reddit / Bluesky / Mastodon / Hacker News / Wikipedia / GitHub | 免 key 直接可用；YouTube 待配置（只差 API key） |
+| 探针 | HuggingFace | Qwen / ornith-ai / Accio-Lab 最新模型 |
+| 探针 | civarchive | MiniMax H3 / Qwen Image 2.1 新 LoRA（按底模归一化匹配） |
+| 探针 | 版本更新 | llama.cpp releases / fastllm tags（atom feed）+ 本地 `git describe` 对比 |
+| 热门话题 | 中文热榜 | bilibili / 微博 / 知乎 / 抖音（官方接口，按排名显示前 10） |
+| 热门话题 | 外网趋势 | Google Trends / Reddit / Bluesky / Mastodon / HN / Wikipedia / GitHub（+ YouTube 待配 key） |
 
-> 可行性结论（实测）：国内四家可用官方接口免凭据跑通；**小红书不可行**（无公开接口，只有签名逆向）；
-> 外网以官方免费源为准：Google Trends/HN/Wikipedia/GitHub/Bluesky/Mastodon 免 key 直接可用，
-> Reddit 免 OAuth 会被限流（有免费 app 凭据则走 OAuth），**X/Twitter 是唯一硬付费墙**——
-> 用「Google Trends + Bluesky + Mastodon」组合近似替代。逐条证据见 `docs/v0.1.5.md`。
+**「新」= 未读，不是「上次探测时第一次见到」**：
 
-- 「新」= 本地库里**首次见到**（`agg_item.first_seen == last_seen`）；第一次探测全部为「新」，之后只有真新增才算
-- 缓存 30 分钟；进入页面若过期/未探测会自动跑一次（只自动一次）
-- 某源超时/改版只影响它自己（卡片显示 `探针失败: …`），其余照常
-- 加源：在 `src/agg/sources.js` 加一条 `{ id, group, label, note, homepage, probe }` 即可，前端自动多一张卡
+- 每个源在 `agg_state.opened_at` 记录**已读水位**；条目的 `first_seen >= opened_at` 才算未读
+- 打开聚合页时显示未读标记；**离开聚合页**时调用 `POST /api/agg/open {all:true}` 打水位，Tools 角标清零
+- 因此「上午没看、中午刷新」不会把新内容悄悄吃掉
 
-### 服务导航（黄页）
+其它行为：
 
-本机各服务的导航页，也是打开 `https://192.168.0.102:18100/` 的**默认落地页**（取代原 nginx 静态导航页）。
+- 缓存 30 分钟；进入页面先渲染缓存，再对过期/未探测的源**逐源增量刷新**（并发 3，单卡回填，不整页重绘）
+- 失败按 `fail_count` 指数退避（60s → 30min 封顶），不会每次开页面都重打坏源；成功时间与失败时间分开记录（`last_ok_at`）
+- 全量刷新有并发上限 4；`?force=1` 才强制刷新未过期源
+- 保留策略：热榜类每源保留最近 200 条，其余源删除 90 天未再见的条目
+- 加源：`src/agg/sources.js` 加一条 `{ id, group, label, note, homepage, probe }` 即可
+- 需要 key 的源用 `requires: { env: [...], hint }` 声明；缺变量时状态为 `unconfigured`
+- 网络约定：国内平台与 hf-mirror/civarchive 走直连；出境源声明 `proxyMode`（`on` 必走 / `auto` 先直连再代理，地址 `AGG_PROXY`，默认 `http://127.0.0.1:12809`）
 
-- **内容全部在 `public/nav.json`**：标题 / 分组 / 卡片 / 底部说明；增删服务只改 JSON，刷新即生效
-- 卡片字段：`name` / `url` / `desc` / `port`（**对外入口 181xx**）/ `upstream`（**回环上游 28xxx**）/ `tags`
-  —— 卡片直接显示端口对，如 `18104 ↳28104`（规范见 zpa 仓库 `PORTS.md`）
-- 渲染：`renderNavApp()`（`public/app.js`）；样式：`style.css` 的「服务导航（黄页）模块」段
-- 窄屏自动单列（网格 `minmax(210px,1fr)` → ≤768px 单列）
+凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库）；systemd 单元用 `EnvironmentFile=-` 读取。
 
-### 音频播放器
+### 项目台账
 
-浏览器端音频队列播放，配合 ComfyUI + CosyVoice 语音合成使用。
+Tools 里的 **📋 项目台账**：zpa 清单落进 `zdb.db`，在面板里看/改/跟踪。
 
-- **播放队列**：POST `/api/play {"path":"..."}` 入队，自动依次播放
-- **控制**：跳过（POST `/api/skip`）、清空（POST `/api/clear`）
-- **文件列表**：GET `/api/audio` 浏览音频目录
-- **WebSocket**：`/ws` 实时推送 play / queued / cleared 事件
+- **事实源 = zpa 仓库清单**（`PROJECTS.md` / `IDEAS-RANKING.md` / `PORTFOLIO.md`）
+- 「从清单导入」**在进程内解析**（`buildSeed()`），不再 spawn 子进程、不再重写仓库里的 `seed.json`；zpa 不可用时自动回退到 `seed.json`
+- 按 `name` 幂等 upsert；**不覆盖**操作字段：状态 / 层 / 下一步 / 备注 / 风险 / 想法判决
+- 表格列数不足会带**文件名+行号**报错，不再静默写入 `undefined`
+- 「同步 git」改为**异步 + 并发 4**，每仓库只用 3 次 git 调用（原来 7 次同步调用会阻塞事件循环）
+- 想法带 F/C/I 评分与 A/B/C/D 档 + 判决按钮（活/搁/死）；Tools 角标 = 待判想法数
+- 写接口有枚举校验（status/layer/verdict、F/C/I 1–5），防止状态空间漂移
 
 ### 英语学习（Vocab）
 
-基于文章的英语单词学习工具。粘贴英文文章，自动分词并标注单词掌握状态，点击单词即可切换状态。
+粘贴英文文章 → 分词入库 → 按状态着色 → 点击切换状态。
 
-#### 工作流
+- **前后端共用 `public/tokenize.js`**：前端能点的词一定在后端词库里（数字 token 不当作单词）
+- 词状态：`unknown`（红）/ `familiar`（黄）/ `mastered`（白）；点击循环 红/白 → 黄 → 白
+- 删除文章会级联删除词-文章关联，并清理**不再属于任何文章**的孤立词（确认框文案与实际一致）
+- 统计：`GET /api/vocab/stats`
 
-1. 粘贴英文文章 → 点击「分析文章」
-2. 后端自动分词、统计词频、入库
-3. 文章中的单词按掌握状态着色（红=不认识 / 黄=眼熟 / 白=已掌握）
-4. 点击单词切换状态：红→黄→白（循环）
-5. 左侧栏查看词汇统计和文章历史
+### 已删除：音频播放器
 
-#### 单词状态
+v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放条、`AUDIO_DIR` 配置、`ws` 依赖全部移除。
+原因：没有文件流路由、WS 载荷与前端长期不一致、队列只播第一首——保留坏代码没有意义，后续重做。
 
-| 状态 | 颜色 | 含义 |
-|------|------|------|
-| unknown | 红色 | 不认识，首次出现 |
-| familiar | 黄色 | 眼熟，正在学习 |
-| mastered | 白色（无色） | 已掌握 |
-
-#### 状态切换逻辑
-
-- unknown / mastered → familiar（标为学习中）
-- familiar → mastered（标为已掌握）
-
-#### API
+## API
 
 | 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/health` | 探活：`{ok,service,version,uptime}`（免鉴权） |
+| GET | `/api/articles` | 文章列表（`content_length` + 去重 `word_count`） |
+| POST | `/api/articles` | 提交文章 `{title?,content}`（≤500k 字符） |
+| GET | `/api/articles/:id` | 文章详情 + 单词状态 |
+| DELETE | `/api/articles/:id` | 删除文章 + 清理孤立词 |
+| PUT | `/api/words` | `{word,status}` 更新掌握状态 |
+| GET | `/api/words/:word/articles` | 单词详情（出现过的文章） |
+| GET | `/api/vocab/stats` | 词汇统计 |
+| GET | `/api/agg` | 聚合快照（缓存 + 未读数 + stale） |
+| POST | `/api/agg/refresh` | `?source=<id>` 刷一个；不带则刷过期源；`?force=1` 强制全部 |
+| POST | `/api/agg/open` | `{all:true}` 或 `{source:"<id>"}` 标记已读水位 |
+| GET | `/api/projects` | 台账列表（`kind/board/layer/status/grade/verdict/q`）+ 统计 |
+| POST | `/api/projects` | 新建 |
+| PATCH | `/api/projects/:id` | 修改（枚举/评分校验） |
+| DELETE | `/api/projects/:id` | 删除 |
+| POST | `/api/projects/import` | 从 zpa 清单导入（`?regen=0` 用 seed.json） |
+| POST | `/api/projects/sync` | 异步刷新 git 派生字段 |
+
+所有错误（含坏 JSON、未知 API）统一返回 JSON：`{ "error": "..." }`。
+
+## 环境变量
+
+| 变量 | 默认 | 说明 |
 |------|------|------|
-| GET | `/api/articles` | 文章列表 |
-| POST | `/api/articles` | 提交文章（自动分词入库） |
-| GET | `/api/articles/:id` | 文章详情（含单词和词频） |
-| DELETE | `/api/articles/:id` | 删除文章 |
-| PUT | `/api/words` | 更新单词掌握状态 `{"word":"...", "status":"mastered/familiar/unknown"}` |
-| GET | `/api/words/:word/articles` | 单词详情（含出现过的文章列表） |
-| GET | `/api/vocab/stats` | 词汇统计（总数/各状态数量/文章数） |
+| `PORT` | `3100` | 监听端口（`ZDASHBOARD_PORT` 作为兼容别名） |
+| `HOST` | `127.0.0.1` | 绑定地址 |
+| `DB_PATH` | `./zdb.db` | SQLite 路径（生产：`/home/tony/zdata/zdb.db`） |
+| `CHECKPOINT` | `throttle` | WAL 策略：`always`（每次写）/ `throttle`（500ms 合并）/ `off`；容器用 `always` |
+| `AUTH_TOKEN` | 空 | 设置后除 `/api/health` 外的 `/api/*` 需要 `X-ZToken` 或 `Authorization: Bearer` |
+| `ZPA_DIR` | `/home/tony/zrepo/zpa` | 项目清单所在仓库 |
+| `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
+| `AGG_PROXY` | `http://127.0.0.1:12809` | 出境源代理 |
+| `YOUTUBE_API_KEY` | — | YouTube Data API v3 |
+| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | — | Reddit OAuth（缺省退回 RSS，可能被 429） |
 
-#### 数据模型
+`AUTH_TOKEN` 用法：浏览器打开一次 `https://host:18100/?token=xxx`（token 存入 localStorage 并自动从 URL 清除）；curl 用 `-H "X-ZToken: xxx"`。更稳妥的方式仍是 nginx `auth_basic` + `AUTH_TOKEN`，或不要让 18100 出内网。
 
-- **zVocab**：单词表（word, status, first_seen, last_seen, click_count）
-- **zArticles**：文章表（title, content, created）
-- **zWordArticles**：单词-文章关联表（word, article_id, count）
+## 数据库约定
+
+- SQLite WAL 模式、`wal_autocheckpoint = 100`、`busy_timeout = 5000`
+- **每次写事务结束后调用 `checkpoint()`**（`src/db.js`），不要直接写 `db.pragma(...)`：
+  - 本机默认 `throttle`：写后 500ms 合并一次，避免每点一个单词都 fsync
+  - 容器/单文件 bind-mount 用 `CHECKPOINT=always`：每次写立刻把 WAL 合回主 `.db`
+  - 关机时 `flushCheckpoint()` 强制落盘；`busy=1` 会打 warn 而不是静默吞掉
+- 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`），不再与 SQLite `localtime` 混用
 
 ## 部署
 
@@ -104,29 +127,29 @@ Tools 里的 **📡 信息聚合**：每个关注对象一个**独立探针**，
 
 ```bash
 # systemd 单元：/etc/systemd/system/zdashboard.service
-sudo systemctl restart zdashboard      # 重启
-sudo journalctl -u zdashboard -f       # 看日志
+sudo systemctl restart zdashboard
+sudo journalctl -u zdashboard -f
 
 # nginx 18100 反代到本服务（/etc/nginx/conf.d/zports-external.conf）
 curl -k https://192.168.0.102:18100/api/health
 ```
 
-- 监听 `127.0.0.1:28100`（仅本机；端口规范：18xxx 对外 18100 ↔ 28xxx 上游 28100，见 zpa 仓库 `PORTS.md`）
-- 数据库 `DB_PATH=/home/tony/zdata/zdb.db`（权威库）、音频 `AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
-- 依赖已 `npm install`（含 `better-sqlite3` 原生绑定；npm 12 需 `allowScripts` 放行，见 `package.json`）
+- 监听 `127.0.0.1:28100`（端口规范：18xxx 对外 18100 ↔ 28xxx 上游 28100）
+- `DB_PATH=/home/tony/zdata/zdb.db`（权威库）
+- ExecStart 使用 pnpm 的 node（`/home/tony/.local/share/pnpm/bin/node`，与已编译的 better-sqlite3 ABI 一致）
+- 旧单元里的 `AUDIO_DIR=` 已无用，可删
 
 ### .run 便携部署
 
 ```bash
-# 构建
 bash deploy/build_run.sh
 
-# 运行
-export ZDB_PATH=/path/to/zdb.db
-export ZAUDIO_DIR=/path/to/audio
-export ZDASHBOARD_PORT=3100
+export ZDB_PATH=/path/to/zdb.db      # 宿主机上的库文件（compose 插值）
+export ZDASHBOARD_PORT=3100          # 宿主机端口
 ./zbuild/zdashboard.run
 ```
+
+容器内使用 `DB_PATH=/data/zdb.db` 与 `CHECKPOINT=always`；音频目录已不需要。
 
 ### Docker Compose
 
@@ -134,45 +157,41 @@ export ZDASHBOARD_PORT=3100
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
+首次部署如果 `ZDB_PATH` 指向的文件不存在，Docker 会把它建成目录——先 `touch` 一个空文件。
+
 ### 本地开发
 
 ```bash
 npm install
-node server.js
+npm run dev        # node --env-file-if-exists=.env --watch server.js
+npm test           # node:test（内存库，不碰生产数据）
+npm run seed       # 仅手动重新生成 src/projects/seed.json
 ```
 
 ## 目录结构
 
 ```
-zDashboard/
-├── server.js           # 入口
+zdashboard/
+├── server.js               # 入口：HTTP + 优雅关闭
 ├── src/
-│   ├── config.js       # 配置（环境变量 > config.json > 默认值）
-│   ├── db.js           # SQLite 初始化
+│   ├── app.js              # Express 装配（测试可直接 import）
+│   ├── config.js           # 环境变量（无 config.json）
+│   ├── db.js               # SQLite + checkpoint 策略
+│   ├── lib/time.js         # ISO 时间工具
 │   ├── agg/
-│   │   ├── sources.js  # 信息聚合：各源定义与探针（每源独立逻辑）
-│   │   └── store.js    # 信息聚合：落库 + 「新」判定
+│   │   ├── sources.js      # 各源探针
+│   │   └── store.js        # 落库 / 未读水位 / 退避 / 保留策略
 │   ├── projects/
-│   │   ├── store.js        # 项目台账：zproject 表 + CRUD
-│   │   └── fromMarkdown.js # 从 zpa 清单生成 seed.json（清单是事实源）
-│   └── routes/
-│       ├── audio.js    # 音频播放路由
-│       ├── articles.js # 文章管理路由
-│       ├── vocab.js    # 词汇学习路由
-│       ├── agg.js      # 信息聚合路由
-│       └── projects.js # 项目台账路由
+│   │   ├── fromMarkdown.js # zpa 清单 → seed（可在进程内调用）
+│   │   └── store.js        # zproject 表 + 校验 + 批量写
+│   └── routes/             # articles / vocab / agg / projects
 ├── public/
-│   ├── index.html      # 单文件 SPA 前端
-│   ├── nav.json        # 服务导航（黄页）数据源
-│   ├── app.js
+│   ├── index.html          # 单页骨架（资产带 ?v=<版本>）
+│   ├── app.js              # ES module 前端
+│   ├── tokenize.js         # 前后端共用分词器
+│   ├── nav.json            # 黄页数据源
 │   └── style.css
-├── deploy/             # Docker 部署
-│   ├── Dockerfile
-│   ├── docker-compose.yml  # c2r 打包 & compose 部署共用
-│   └── build_run.sh    # .run 构建脚本（调用 c2r）
-├── docs/               # 项目文档
-│   ├── ROADMAP.md      # 路线图
-│   └── v0.1.0.md       # 版本更新记录
-├── package.json
-└── .gitignore
+├── test/                   # node:test（tokenize / agg / projects / api / auth）
+├── deploy/                 # Dockerfile / compose / build_run.sh / c2r.sh
+└── docs/                   # 路线图与逐版本记录
 ```

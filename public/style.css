@@ -194,43 +194,6 @@
             padding:8px;    /* 给主显示区一点呼吸空间 */
         }
 
-        /* ========== 音频播放器 ========== */
-        /* 固定在底部，半透明背景，显示当前播放状态 */
-        .audio-bar{
-            position:fixed;bottom:0;left:0;right:0;
-            height:36px;z-index:100;
-            display:flex;align-items:center;gap:8px;
-            padding:0 12px;
-            background:rgba(19,21,30,.92);
-            backdrop-filter:blur(8px);
-            border-top:1px solid var(--bdr);
-            font-size:11px;color:var(--tx2);
-            transform:translateY(100%);    /* 默认隐藏 */
-            transition:transform .25s ease;
-        }
-        .audio-bar.visible{transform:translateY(0)}  /* 有音频时显示 */
-        /* 播放状态指示灯 */
-        .audio-bar .ab-dot{
-            width:6px;height:6px;border-radius:50%;flex-shrink:0;
-            background:var(--grn);
-        }
-        .audio-bar .ab-dot.playing{animation:pulse 1.2s infinite}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-        /* 当前文件名 */
-        .audio-bar .ab-name{
-            flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-            color:var(--tx);font-weight:500;
-        }
-        /* 队列计数角标 */
-        .audio-bar .ab-badge{
-            font-size:9px;background:rgba(108,92,231,.15);color:var(--ac2);
-            padding:1px 6px;border-radius:6px;
-        }
-        /* WS连接状态 */
-        .audio-bar .ab-ws{
-            font-size:9px;color:var(--tx3);flex-shrink:0;
-        }
-
         /* ========== 英语学习模块 ========== */
 
         /* 模块容器：填满主显示区 */

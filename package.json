@@ -1,20 +1,23 @@
 {
   "name": "zdashboard",
-  "version": "0.1.7",
-  "description": "zDashboard backend - audio queue & more",
+  "version": "0.2.0",
+  "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目台账 / Vocab",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "seed": "node src/projects/fromMarkdown.js",
+    "test": "node --test"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
-    "express": "^4.21.0",
+    "express": "^4.22.3",
     "fast-xml-parser": "^5.11.2",
-    "js-yaml": "^5.1.0",
-    "undici": "^8.12.1",
-    "ws": "^8.18.0"
+    "undici": "^8.12.1"
   },
   "allowScripts": {
     "better-sqlite3@12.8.0": true

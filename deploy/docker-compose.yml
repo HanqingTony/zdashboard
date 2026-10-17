@@ -2,13 +2,20 @@ services:
   zdashboard:
     image: zdashboard:latest
     container_name: zdashboard
+    init: true
     ports:
       - "${ZDASHBOARD_PORT}:3100"
     volumes:
+      # 注意：宿主机文件不存在时 Docker 会建目录；首次部署请先 touch 一个空 zdb.db
       - ${ZDB_PATH}:/data/zdb.db
-      - ${ZAUDIO_DIR}:/data/audio
     environment:
       - HOST=0.0.0.0
       - DB_PATH=/data/zdb.db
-      - AUDIO_DIR=/data/audio
+      # 单文件 bind mount 场景：每次写立刻把 WAL 合回主库
+      - CHECKPOINT=always
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

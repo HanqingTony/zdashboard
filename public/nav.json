@@ -6,7 +6,7 @@
       "name": "对外（LAN 可达）",
       "note": "181xx = 唯一入口（nginx TLS）→ 28xxx 回环上游",
       "items": [
-        { "name": "zDashboard", "url": "https://192.168.0.102:18100/", "desc": "本页 · 服务导航 + Vocab", "port": "18100", "upstream": "28100" },
+        { "name": "zDashboard", "url": "https://192.168.0.102:18100/", "desc": "本页 · 服务导航 + 信息聚合 + 项目台账 + Vocab", "port": "18100", "upstream": "28100" },
         { "name": "dsh web", "url": "https://192.168.0.102:18110/", "desc": "DeepSeek Harness 工作台", "port": "18110", "upstream": "28110", "tags": ["遗留 3080/3081"] },
         { "name": "MinIO 控制台", "url": "https://192.168.0.102:18101/", "desc": "对象存储管理台（S3 API 仍在 :9000）", "port": "18101", "upstream": "28101" },
         { "name": "searxng", "url": "https://192.168.0.102:18102/", "desc": "元搜索（自建实例）", "port": "18102", "upstream": "28102" },

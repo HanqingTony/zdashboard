@@ -1,83 +1,101 @@
 # AGENTS.md — zdashboard
 
 ## Tech Stack
-- Backend: Node.js (ESM `"type": "module"`), Express 4.x, better-sqlite3, ws
-- Frontend: single-file SPA at `public/index.html`, no build step, no bundler
-- No tests, no lint, no typecheck configuration exists
+- Backend: Node.js 22（ESM `"type": "module"`）、Express 4.x、better-sqlite3、undici、fast-xml-parser
+- Frontend: `public/index.html` + `public/app.js`（**ES module，无构建步骤**）+ `public/tokenize.js`（前后端共用分词器）
+- Tests: `node:test`（`npm test`，内存库，不碰生产数据）
 
 ## Commands
 ```bash
 npm start          # node server.js
-npm run dev        # node --watch server.js (auto-restart on changes)
+npm run dev        # node --env-file-if-exists=.env --watch server.js
+npm test           # node --test
+npm run seed       # 手动重新生成 src/projects/seed.json（可选；导入不再依赖它）
 ```
 
 ## Environment Variables
-Config is in `src/config.js` using `process.env.*` with defaults:
+Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已修正）：
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `28100` | Server port（生产；回环上游，配对对外 18100） |
+| `PORT` | `3100` | 监听端口（`ZDASHBOARD_PORT` 是 .run/compose 时代的兼容别名） |
 | `HOST` | `127.0.0.1` | Bind address |
-| `DB_PATH` | `./zdb.db` | SQLite database path |
-| `AUDIO_DIR` | `./audio/` | Audio files directory |
+| `DB_PATH` | `./zdb.db` | SQLite database path（生产 `/home/tony/zdata/zdb.db`） |
+| `CHECKPOINT` | `throttle` | WAL 策略：`always` / `throttle` / `off`；容器用 `always` |
+| `AUTH_TOKEN` | 空 | 可选写保护；设置后除 `/api/health` 外的 `/api/*` 需 `X-ZToken` 或 Bearer |
+| `ZPA_DIR` | `/home/tony/zrepo/zpa` | 项目清单事实源 |
+| `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
+| `AGG_PROXY` | `http://127.0.0.1:12809` | 出境源代理 |
 
-For `.run` deployment, the deploy script uses different env names: `ZDB_PATH`, `ZAUDIO_DIR`, `ZDASHBOARD_PORT`.
+`.run` 部署的历史变量名：`ZDB_PATH`（compose 宿主机路径插值）、`ZDASHBOARD_PORT`（宿主机端口）；容器内部仍用 `DB_PATH`。`AUDIO_DIR` 已随音频模块删除。
 
 ## Database Conventions
-- SQLite with WAL mode, `wal_autocheckpoint = 100`
-- **Critical convention**: After every write transaction (insert/update/delete), code explicitly calls `db.pragma('wal_checkpoint(TRUNCATE)')`. This ensures the WAL is merged into the main `.db` file immediately — required for single-file bind mounts where `-wal`/`-shm` are not mapped to the host. Follow this pattern for all new write operations.
-- Auto-create on first write (zVocab, zArticles are static tables — no migration system).
+- SQLite WAL、`wal_autocheckpoint = 100`、`busy_timeout = 5000`
+- **每次写事务后调用 `checkpoint()`（`src/db.js`），不要直接写 `db.pragma('wal_checkpoint(...)')`**
+  - `throttle`（本机默认）：写后 500ms 合并，避免每次点词都 fsync
+  - `always`（容器/单文件 bind-mount）：每次写立刻 TRUNCATE
+  - 关机 `flushCheckpoint()` 强制落盘；`busy=1` 会 warn
+- 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`）；不要混用 SQLite `localtime`
+- 历史残留表 `zInfra` / `zObjects` 是旧版本产物，代码不再引用（未自动删，避免误删数据）
 
 ## Server Architecture
-- Entry: `server.js` — sets up Express + WebSocket server on same HTTP port
-- WebSocket: `/ws` broadcasts `play`/`status` events for the audio queue
-- Graceful shutdown: `SIGINT`/`SIGTERM` → WAL checkpoint → close DB → exit
-- `audioState` (queue, isPlaying, currentFile) is a mutable object shared between the audio router and server.js via import
+- 入口 `server.js`：创建 HTTP server、启动/优雅关闭（SIGINT/SIGTERM → close → flush → db.close）
+- `src/app.js`：`createApp()` 装配 Express（测试直接 import，不监听端口）
+  - `/` 注入 `?v=<version>` 到 `app.js` / `style.css`（部署后缓存自动失效）
+  - 静态资源 1h 缓存；`/index.html` 301 → `/`
+  - 统一 JSON 错误处理（坏 JSON / URIError / async 抛错）
+  - 可选 `AUTH_TOKEN` 中间件（health 免鉴权）
+- 音频模块与 WebSocket 已于 v0.2.0 删除（`docs/DESIGN.md` 的决议）
 
 ## Routes
 | File | Prefix | Purpose |
 |------|--------|---------|
-| `src/routes/audio.js` | `/api/audio`, `/api/play`, `/api/skip`, `/api/clear` | Audio file browser + playback queue |
-| `src/routes/articles.js` | `/api/articles` | Article CRUD with word extraction |
-| `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | Word learning status management |
-| `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh` | 信息聚合：读缓存 / 跑探针（每源独立失败隔离） |
-| `src/routes/projects.js` | `/api/projects[/import,/sync,/:id]` | 项目台账：CRUD + 从 zpa 清单导入 + 同步 git |
-| `server.js` | `/api/health` | 探活：`{ok,service,version,uptime}`（在 server.js 内联，不单独建文件） |
+| `src/routes/articles.js` | `/api/articles` | 文章 CRUD；分词入库；删除后清理孤立词 |
+| `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | 单词状态与统计 |
+| `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
+| `src/routes/projects.js` | `/api/projects[/import,/sync,/:id]` | 项目台账：CRUD + 清单导入 + 异步 git |
+| `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
-## 项目台账
-- **事实源是 zpa 仓库的清单**（`PROJECTS.md`/`IDEAS-RANKING.md`/`PORTFOLIO.md`）；`src/projects/fromMarkdown.js` 把它们解析成 `seed.json`，`/api/projects/import` 按 `name` 幂等 upsert 进 `zproject` 表（`zdb.db`）
-- 导入**不覆盖**库里的操作字段（状态/下一步/备注/风险/verdict/)：SQL 用 `COALESCE(NULLIF(现有值,''), 新值)`
-- git 派生字段（最近提交/脏/未推送/远端）由 `/api/projects/sync` 刷新
-- 想法判决 `verdict`：alive/parked/killed（Tools 角标 = 待判想法数）
+所有路由的错误响应统一 `{error}`；参数/枚举校验在 `src/projects/store.js`。
 
 ## 信息聚合
-- 每源一段探针逻辑：`src/agg/sources.js`（HF 组织最新模型 / civarchive 按底模筛 LoRA）；加源 = 加一条 `SOURCES` 条目
-- 落库与「新」判定：`src/agg/store.js`（`agg_item` 表：`first_seen == last_seen` 即「新」）；写完 `wal_checkpoint(TRUNCATE)`
-- 路由：`src/routes/agg.js`（TTL 30 分钟、同源并发去重、失败只影响自己）
-- 网络约定：国内平台与 hf-mirror/civarchive **只走直连**；出境源在源上声明 `proxyMode`：`'on'` 必走代理 / `'auto'` 先直连失败再走代理（地址 `AGG_PROXY`，默认 `http://127.0.0.1:12809`），不依赖系统代理 env
-- **代理坑（务必记住）**：Node 内置 `fetch` 与外装 `undici` 版本不同，混用 dispatcher 会报 `fetch failed / invalid onRequestStart method` → 代理请求必须用 `undici` 自带的 `fetch`
-- RSS/Atom 源用 `fast-xml-parser`（`parseXml()`）；Reddit 无凭据时退回 RSS（会 429，已加重试一次），有 `REDDIT_CLIENT_ID/SECRET` 时走官方 OAuth
-- 凭据约定：需要 key 的源用 `requires: { env: [...] }` 声明；**凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库）**，单元用 `EnvironmentFile=-` 读；缺变量时状态为 `unconfigured`（不探测、卡片给申请指引）
-- 热榜类源：`ranked: true` + `display: 10`，条目带 `ord`（榜单排名），排序 `(ord IS NULL), ord ASC, created_at DESC`
-- 前端：`public/app.js` 的 `renderAggApp()` / `refreshAgg()`；Tools 角标 `#badgeAgg(L)` 显示新条目数
+- 每源一段探针：`src/agg/sources.js`；加源 = 加一条 `SOURCES` 条目
+- 落库/已读/退避/保留：`src/agg/store.js`
+  - **「新」= 未读**：`agg_item.first_seen >= agg_state.opened_at`（不要回到 `first_seen == last_seen` 的旧语义）
+  - 离开聚合页时前端 `POST /api/agg/open {all:true}` 打水位 → Tools 角标清零
+  - `last_ok_at` 与 `fetched_at` 分开：stale 基于上次成功；失败按 `fail_count` 指数退避
+  - 保留：热榜类每源最近 200 条；其余源 90 天
+- 路由：TTL 30 分钟、同源并发去重、全量刷新并发上限 4、`force=1` 强制
+- 网络：国内平台与 hf-mirror/civarchive 只走直连；出境源声明 `proxyMode`：`'on'` 必走代理 / `'auto'` 先直连失败再代理，不依赖系统代理 env
+- **代理坑**：Node 内置 `fetch` 与外装 `undici` 版本不同，混用 dispatcher 会报 `fetch failed / invalid onRequestStart method` → 代理请求必须用 `undici` 自带的 `fetch`
+- 凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库），单元用 `EnvironmentFile=-` 读；缺变量为 `unconfigured`
+
+## 项目台账
+- 事实源是 zpa 清单（`PROJECTS.md`/`IDEAS-RANKING.md`/`PORTFOLIO.md`）
+- `fromMarkdown.js` 导出 `buildSeed()`：**进程内解析**，不再 spawn `node`、不再重写 seed.json；表格列数不足带文件名+行号报错
+- `/api/projects/import` 按 `name` 幂等 upsert；操作字段（status/layer/next_step/note/risk/verdict）**不覆盖**，其余清单字段以 seed 为准
+- `/api/projects/sync`：异步 + 并发 4，每仓库 3 次 git 调用（`status --porcelain=v2 --branch`、`log -1`、`remote -v`）
+- 想法判决 `verdict`：alive/parked/killed（Tools 角标 = 待判想法数）
 
 ## 服务导航（黄页）
-- 数据源：`public/nav.json`（静态文件，路由不参与）——**改导航只改这个 JSON**，不必改代码
-- 渲染：`public/app.js` 的 `renderNavApp()`；`switchApp('nav')` 是初始化默认应用
-- 样式：`public/style.css` 尾部「服务导航（黄页）模块」段
-- 部署：zmain 上由 systemd `zdashboard.service`（`127.0.0.1:28100`）+ nginx **18100** 反代对外
+- 数据源：`public/nav.json`（静态文件）——**改导航只改这个 JSON**
+- 渲染：`public/app.js` 的 `renderNavApp()`；默认落地应用 `switchApp('nav')`
+- 卡片端口：`port`（对外 181xx）/ `upstream`（回环 28xxx）
+- 新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
 
 ## Frontend Quirks
-- Dual layout: portrait (`#scroller`) and landscape (`#landscape`) both exist in DOM, CSS toggles `display` via `@media (orientation: ...)`
-- Many UI items (Projects, Tools) are hardcoded HTML, not data-driven
-- Vocab app is the only functional tool; others are static placeholders
-- 服务导航（黄页）是唯一由数据文件驱动的模块（`public/nav.json`），且是默认落地应用（`switchApp('nav')`）
-- 黄页卡片字段：`name`/`url`/`desc`/`port`（**对外入口，181xx**）/`upstream`（**回环上游，28xxx**）/`tags`；端口规范见 zpa 仓库 `PORTS.md`
-- 上游端口只绑 `127.0.0.1`（生产由 systemd 设 `PORT=28100`），对外一律经 nginx 18100 —— **新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」**
-- 音频播放是遗留半成品：无文件流路由，且 `/ws` 的 `play` 载荷形状与前端不一致（v0.2.0 计划删除音频模块）
+- `public/app.js` 是 **ES module**（`<script type="module">`），inline `onclick` 依赖文件末尾的 `Object.assign(window, {...})`；新增按钮记得把函数挂上
+- 竖屏/横屏两块屏都在 DOM 里；`layout()` 在跨 768px 断点时**重渲染当前应用**（修复旋转后空白）
+- 侧栏 Projects/Tools 由 `renderPanels()` 从 `APPS` 配置生成（不再两份硬编码）
+- `escHtml()` 转义 `& < > " '`；外链一律走 `safeUrl()`（只放行 http(s)/站内路径）
+- 分词必须用 `public/tokenize.js`（`tokenize` / `wordCounts`），不要在任一端另写正则
+- 聚合页先渲染缓存，再逐源增量刷新（并发 3、单卡回填）；`refreshAgg(id)` 单源、`refreshAgg()` 全量
+- Vocab 是唯一有完整交互的工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
 
 ## Deploy
-- Production: `bash deploy/build_run.sh` produces a self-contained `zbuild/zdashboard.run` binary (uses Docker + c2r)
-- zmain 本机（当前实际部署）：systemd `zdashboard.service` → `127.0.0.1:28100`，nginx **18100** 反代给 LAN
-  - `PORT=28100`（回环上游，配对对外 18100）、`DB_PATH=/home/tony/zdata/zdb.db`（权威库）、`AUDIO_DIR=/home/tony/zdata/zdashboard/audio`
-  - ExecStart 用 pnpm 的 node（`/home/tony/.local/share/pnpm/bin/node`，系统 `/usr/bin/node` 是 20.x，与已编译的 better-sqlite3 绑定 ABI 不符）
+- 生产：zmain 上 systemd `zdashboard.service` → `127.0.0.1:28100`，nginx **18100** 反代
+  - `PORT=28100`、`DB_PATH=/home/tony/zdata/zdb.db`、`CHECKPOINT=throttle`
+  - ExecStart 用 pnpm 的 node（系统 node 的 ABI 可能与已编译 better-sqlite3 不符）
+- `.run`：`bash deploy/build_run.sh`（Docker + c2r）；compose 设 `CHECKPOINT=always`
+- 改动后必须重启 systemd 服务才生效（生产直接跑仓库代码）
+- 发布前跑 `npm test`；提交/推送用 `git push origin main`（origin 配了 GitHub + Gitee 两条 pushurl）

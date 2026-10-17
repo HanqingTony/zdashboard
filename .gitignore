@@ -2,3 +2,19 @@ node_modules/
 data/
 *.log
 zbuild/
+*.run
+
+# 本地数据库（生产库在 /home/tony/zdata/zdb.db，绝不入库）
+zdb.db
+zdb.db-wal
+zdb.db-shm
+*.db.bak*
+
+# 音频/本地素材
+audio/
+
+# 凭据（agg.env 在 /home/tony/zdata/zdashboard/agg.env，600）
+.env
+agg.env
+
+.DS_Store
