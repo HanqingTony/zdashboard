@@ -48,7 +48,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 入口 `server.js`：创建 HTTP server、启动/优雅关闭（SIGINT/SIGTERM → close → flush → db.close）
 - `src/app.js`：`createApp()` 装配 Express（测试直接 import，不监听端口）
   - `/` 注入 `?v=<version>` 到 `app.js` / `style.css`（部署后缓存自动失效）
-  - 静态资源 1h 缓存；`/index.html` 301 → `/`
+  - JS/CSS 用 `Cache-Control: no-cache` 重校验（ES module import 不带版本号）；其它静态 1h；`/index.html` 301 → `/`
   - 统一 JSON 错误处理（坏 JSON / URIError / async 抛错）；生产 500 不回传内部错误文本
   - 可选 `AUTH_TOKEN`（health 免鉴权），鉴权在 body 解析之前；`ALLOWED_HOSTS` 可选 Host 白名单
   - `/api` 限流 180 次/分钟/IP；CSP / X-Frame-Options / nosniff / no-referrer 安全头

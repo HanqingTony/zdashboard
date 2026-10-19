@@ -24,6 +24,9 @@ test('health + 首页版本注入 + 静态资源可访问', async () => {
   assert.match(html, new RegExp(`app\\.js\\?v=${h.version.replace(/\./g, '\\.')}`));
   assert.equal((await json('/app.js')).status, 200);
   assert.equal((await json('/tokenize.js')).status, 200);
+  const moduleRes = await json('/core.js');
+  assert.equal(moduleRes.status, 200);
+  assert.match(moduleRes.headers.get('cache-control'), /no-cache/);
 });
 
 test('文章：入库分词、列表词数、删除后清理孤立词', async () => {

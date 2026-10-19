@@ -43,9 +43,17 @@ export function createApp() {
     });
   }
 
-  // 静态资源：URL 带 ?v=<版本> 时浏览器可长期缓存；nav.json 由前端 no-store 拉取
+  // 静态资源：HTML/JS/CSS 必须重校验（ES module 的 import 不带版本号），
+  // 图片等其它资源可缓存 1h；nav.json 由前端 no-store 拉取。
   app.get('/index.html', (req, res) => res.redirect(301, '/'));
-  app.use(express.static(PUBLIC_DIR, { index: false, maxAge: '1h', etag: true }));
+  app.use(express.static(PUBLIC_DIR, {
+    index: false,
+    maxAge: '1h',
+    etag: true,
+    setHeaders(res, filePath) {
+      if (/\.(?:js|css)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+    },
+  }));
 
   // 首页：注入版本号，部署后 app.js/style.css 的 URL 自动变化，避免旧缓存
   const INDEX_HTML = readFileSync(resolve(PUBLIC_DIR, 'index.html'), 'utf8');
