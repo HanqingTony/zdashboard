@@ -6,7 +6,29 @@ import { apiFetch, escHtml, formatDate, registerApp } from './core.js';
 const vocabState = {
     articles: [],
     currentArticle: null,
+    keyboard: false,   // 键盘选词模式（Tab 聚焦单词，Enter/空格切换状态）
 };
+
+function wordAttrs() {
+    return vocabState.keyboard ? ' tabindex="0" role="button"' : '';
+}
+
+function toggleKeyboardMode() {
+    vocabState.keyboard = !vocabState.keyboard;
+    const btn = document.getElementById('vocabKbBtn');
+    if (btn) btn.classList.toggle('on', vocabState.keyboard);
+    const reader = document.getElementById('vocabReader');
+    if (!reader) return;
+    reader.querySelectorAll('.vw').forEach(el => {
+        if (vocabState.keyboard) {
+            el.setAttribute('tabindex', '0');
+            el.setAttribute('role', 'button');
+        } else {
+            el.removeAttribute('tabindex');
+            el.removeAttribute('role');
+        }
+    });
+}
 
 function renderVocabApp(container) {
     container.innerHTML = `
@@ -15,6 +37,8 @@ function renderVocabApp(container) {
                 <span class="vh-title">&#x1F4DA; Vocab Builder</span>
                 <div class="vh-stats" id="vocabStats"></div>
                 <div class="vh-spacer"></div>
+                <button class="vb" id="vocabKbBtn" onclick="toggleKeyboardMode()"
+                        title="开启后可用 Tab 聚焦单词，Enter / 空格切换状态">⌨ 键盘选词</button>
             </div>
             <div class="vocab-body">
                 <div class="vocab-sidebar">
@@ -33,6 +57,8 @@ function renderVocabApp(container) {
             </div>
         </div>
     `;
+    const kbBtn = document.getElementById('vocabKbBtn');
+    if (kbBtn) kbBtn.classList.toggle('on', vocabState.keyboard);
     // 旋转/切屏重渲染时保留当前文章
     if (vocabState.currentArticle) renderArticleContent(vocabState.currentArticle);
     loadArticles();
@@ -156,7 +182,7 @@ function renderNextChunk() {
         } else {
             const raw = state.wordMap[t.key];
             const status = raw === 'mastered' ? 'mastered' : raw === 'familiar' ? 'familiar' : 'unknown';
-            html += `<span class="vw ${status}" data-word="${escHtml(t.key)}" onclick="onWordClick(this, event)">${escHtml(t.text)}</span>`;
+            html += `<span class="vw ${status}" data-word="${escHtml(t.key)}"${wordAttrs()} onclick="onWordClick(this, event)">${escHtml(t.text)}</span>`;
         }
     }
     state.index = end;
@@ -212,7 +238,9 @@ async function onWordClick(el) {
         : el.classList.contains('familiar') ? 'familiar' : 'unknown';
     const next = (prev === 'familiar') ? 'mastered' : 'familiar';
 
-    const spans = document.querySelectorAll(`.vw[data-word="${CSS.escape(word)}"]`);
+    // 词 key 只含 [a-z0-9'-]，没有引号/反斜杠；CSS.escape 不可用时可直接拼
+    const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(word) : word;
+    const spans = document.querySelectorAll(`.vw[data-word="${escaped}"]`);
     const paint = (s) => spans.forEach(span => {
         span.classList.remove('mastered', 'familiar', 'unknown');
         span.classList.add(s);
@@ -235,6 +263,16 @@ async function onWordClick(el) {
 
 registerApp('vocab', { render: renderVocabApp });
 
+// 键盘选词：单词获得焦点后 Enter / 空格 = 点击
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target;
+    if (!el || !el.classList || !el.classList.contains('vw')) return;
+    e.preventDefault();
+    onWordClick(el);
+});
+
 Object.assign(window, {
     showInputArea, loadArticle, deleteArticle, analyzeArticle, onWordClick, renderNextChunk,
+    toggleKeyboardMode,
 });

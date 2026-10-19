@@ -366,6 +366,7 @@
 
         /* 大文章分段加载按钮 */
         .vocab-more{padding:12px 0 20px;text-align:center}
+        .vb.on{background:var(--ac);color:#fff;border-color:var(--ac)}
         /* 非单词字符（标点、空格、换行等） */
 
         /* ========== 服务导航（黄页）模块 ========== */
