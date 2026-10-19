@@ -75,13 +75,13 @@ test('buildSeed 解析项目/想法/风险，并修正 L0 置顶', () => {
     }
 
     const dash = rows.find(r => r.name === 'zdashboard');
-    assert.equal(dash.status, '🟢活跃');
-    assert.equal(dash.layer, 'L0 在做');
+    assert.equal(dash.status, 'active');
+    assert.equal(dash.layer, 'l0');
     assert.equal(dash.pinned, 1);
     assert.match(dash.risk, /只在本机/);
 
     const comfy = rows.find(r => r.name === 'zup / comfy-web');
-    assert.equal(comfy.layer, 'L0 在做');
+    assert.equal(comfy.layer, 'l0');
 
     const foo = rows.find(r => r.name === 'foo');
     assert.equal(foo.kind, 'idea');
@@ -94,7 +94,7 @@ test('buildSeed 解析项目/想法/风险，并修正 L0 置顶', () => {
     assert.match(bar.note, /^冻结理由：/);
 
     const archived = rows.find(r => r.name === 'oldthing');
-    assert.equal(archived.layer, 'L4 归档');
+    assert.equal(archived.layer, 'l4');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -115,7 +115,8 @@ test('zpa 目录不存在时给出明确错误', () => {
 });
 
 test('台账 CRUD：评分重算、枚举校验、git 批量写回', () => {
-  const created = store.create({ name: 'idea-x', kind: 'idea', status: '💭想法' });
+  const created = store.create({ name: 'idea-x', kind: 'idea', status: '💭想法' });   // 旧值会被归一化
+  assert.equal(created.status, 'idea');
   assert.equal(created.name, 'idea-x');
 
   const scored = store.update(created.id, { feasibility: 5, completeness: 4, importance: 4 });
@@ -144,7 +145,7 @@ test('导入幂等：不覆盖操作字段，但清单字段会更新', () => {
 
   store.upsertMany([{ name: 'p1', kind: 'repo', status: '🟡按需', next_step: '新', stack: 'Node' }]);
   const after = store.list({ kind: 'repo' }).find(x => x.name === 'p1');
-  assert.equal(after.status, '⚪暂停');           // 操作字段保留
+  assert.equal(after.status, 'paused');           // 操作字段保留
   assert.equal(after.next_step, '手动下一步');
   assert.equal(after.stack, 'Node');              // 清单字段更新
 });

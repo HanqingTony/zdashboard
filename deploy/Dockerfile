@@ -17,6 +17,10 @@ COPY src/ ./src/
 COPY public/ ./public/
 COPY scripts/ ./scripts/
 
+# 单文件 bind-mount 时 WAL/SHM 要写在同一目录；把 /data 的属主给 node，
+# 否则 `${ZDB_PATH}:/data/zdb.db` 会因目录不可写报 SQLITE_READONLY_DIRECTORY
+RUN mkdir -p /data && chown node:node /data
+
 EXPOSE 3100
 USER node
 

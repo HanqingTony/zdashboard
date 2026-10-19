@@ -1,6 +1,6 @@
 {
   "name": "zdashboard",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目台账 / Vocab",
   "private": true,
   "type": "module",
@@ -12,7 +12,8 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "seed": "node src/projects/fromMarkdown.js",
     "test": "node --test",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "archive-legacy": "node scripts/archive-legacy.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

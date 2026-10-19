@@ -2,16 +2,17 @@
 
 ## Tech Stack
 - Backend: Node.js 22（ESM `"type": "module"`）、Express 4.x、better-sqlite3、undici、fast-xml-parser
-- Frontend: `public/index.html` + `public/app.js`（**ES module，无构建步骤**）+ `public/tokenize.js`（前后端共用分词器）
+- Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|projects.js` 模块）+ `tokenize.js` / `projects-meta.js`（前后端共用）
 - Tests: `node:test`（`npm test`，内存库，不碰生产数据）
 
 ## Commands
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（24 用例，内存库）
+npm test           # node --test（27 用例，内存库）
 npm run seed       # 手动重新生成 src/projects/seed.json（可选；导入不再依赖它）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
+npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
 
 ## Environment Variables
@@ -34,13 +35,14 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 `.run` 部署的历史变量名：`ZDB_PATH`（compose 宿主机路径插值）、`ZDASHBOARD_PORT`（宿主机端口）；容器内部仍用 `DB_PATH`。`AUDIO_DIR` 已随音频模块删除。
 
 ## Database Conventions
+- **迁移**：只用 `src/migrations.js`（`PRAGMA user_version`）；新增表/字段加一条 `MIGRATIONS`，不要在 store 里散落 DDL
 - SQLite WAL、`wal_autocheckpoint = 100`、`busy_timeout = 5000`
 - **每次写事务后调用 `checkpoint()`（`src/db.js`），不要直接写 `db.pragma('wal_checkpoint(...)')`**
   - `throttle`（本机默认）：写后 500ms 合并，避免每次点词都 fsync
   - `always`（容器/单文件 bind-mount）：每次写立刻 TRUNCATE
   - 关机 `flushCheckpoint()` 强制落盘；`busy=1` 会 warn
 - 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`）；不要混用 SQLite `localtime`
-- 历史残留表 `zInfra` / `zObjects` 是旧版本产物，代码不再引用（未自动删，避免误删数据）
+- 历史表 `zInfra` / `zObjects` 已归档到 `BACKUP_DIR/legacy/` 并从主库删除（`scripts/archive-legacy.js`）
 
 ## Server Architecture
 - 入口 `server.js`：创建 HTTP server、启动/优雅关闭（SIGINT/SIGTERM → close → flush → db.close）
@@ -92,13 +94,15 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
 
 ## Frontend Quirks
-- `public/app.js` 是 **ES module**（`<script type="module">`），inline `onclick` 依赖文件末尾的 `Object.assign(window, {...})`；新增按钮记得把函数挂上
+- `public/app.js` 是启动入口（**ES module**）；各模块各自 `registerApp()` 并 `Object.assign(window, {...})` 暴露 inline onclick 函数
+- `core.js` 提供 `apiFetch / escHtml / safeUrl / getActiveScreen / layout / isActive / registerApp / 状态栏 helpers`；不要反向 import 具体模块
 - 竖屏/横屏两块屏都在 DOM 里；`layout()` 在跨 768px 断点时**重渲染当前应用**（修复旋转后空白）
 - 顶栏台账/未读/版本是真实数据（`setStat`）；侧栏项目列表来自 `/api/projects`（前 5 条）
 - 侧栏 Projects/Tools 由 `renderPanels()` 从 `APPS` 配置生成（不再两份硬编码）
 - `escHtml()` 转义 `& < > " '`；外链一律走 `safeUrl()`（只放行 http(s)/站内路径）
 - 分词必须用 `public/tokenize.js`（`tokenize` / `wordCounts`），不要在任一端另写正则；URL/邮箱/代码块已被自动排除
-- 台账枚举必须从 `public/projects-meta.js` 取（前后端共用），不要写死 `🟢活跃` 等字面量
+- 台账枚举必须从 `public/projects-meta.js` 取（前后端共用）；存储用 code（`active` / `l0`），展示用 `statusLabel()/layerLabel()`
+- 前端模块通过 `registerApp(id, { render, onLeave? })` 注册；新页面加一个模块并在 `app.js` import
 - 文章按 12000 token 分段渲染（`renderNextChunk()`）；新增渲染逻辑不要绕过这个上限
 - 词状态渲染只允许 `mastered/familiar`，其余按 `unknown`（防 class 注入）
 - 聚合页先渲染缓存，再逐源增量刷新（并发 3、单卡回填）；`refreshAgg(id)` 单源、`refreshAgg()` 全量

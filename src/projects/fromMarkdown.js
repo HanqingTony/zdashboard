@@ -29,16 +29,15 @@ function normStatus(cell) {
   if (c.includes('🟡')) return STATUS.ON_DEMAND;
   if (c.includes('🔵')) return STATUS.MAINTENANCE;
   if (c.includes('⚪')) return STATUS.PAUSED;
-  if (c.includes('🧩')) return STATUS.UPSTREAM;
+  if (c.includes('🧩')) return STATUS.UPSTREAM;   // 返回 code，不再存 emoji
   return strip(c);
 }
 
 function layerOf(status, kind) {
   if (kind === 'idea') return LAYER.L3;
-  if (status.includes('归档')) return LAYER.L4;
-  if (status.includes('欠账')) return LAYER.L1;
-  if (status.includes('活跃')) return LAYER.L1;
-  if (status.includes('上游')) return LAYER.L2;
+  if (status === STATUS.ARCHIVED) return LAYER.L4;
+  if (status === STATUS.DEBT || status === STATUS.ACTIVE) return LAYER.L1;
+  if (status === STATUS.UPSTREAM) return LAYER.L2;
   return LAYER.L2;
 }
 

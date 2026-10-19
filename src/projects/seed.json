@@ -3,360 +3,360 @@
   "name": "zdashboard",
   "kind": "repo",
   "board": "工程",
-  "status": "🟢活跃",
+  "status": "active",
   "stack": "Node 22 + Express + better-sqlite3 + 原生前端",
   "deploy": "zmain 127.0.0.1:28100 → nginx TLS 18100（systemd zdashboard.service）",
   "next_step": "信息流收口、YouTube key、按需接更多探针",
   "source": "zpa/PROJECTS.md §一",
   "risk": "只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/zdashboard",
-  "layer": "L0 在做",
+  "layer": "l0",
   "pinned": 1
  },
  {
   "name": "zup / comfy-web",
   "kind": "repo",
   "board": "工程",
-  "status": "🟢活跃",
+  "status": "active",
   "stack": "Deno 2 + Hono + node:sqlite + 原生前端",
   "deploy": "zmain 127.0.0.1:28104 → 18104（systemd comfy-web.service）",
   "next_step": "白名单机制继续收口；e2e 跟随数据漂移修断言",
   "source": "zpa/PROJECTS.md §一",
   "risk": "测试红（建议：改成按工作流名定位）",
   "repo_path": "/home/tony/zrepo/zup",
-  "layer": "L0 在做",
+  "layer": "l0",
   "pinned": 1
  },
  {
   "name": "anotemanager (anm)",
   "kind": "repo",
   "board": "工程",
-  "status": "🟢活跃",
+  "status": "active",
   "stack": "Rust（多 crate）",
   "deploy": "zmain 回环 MCP 28103（按需启动）→ 18103",
   "next_step": "索引/全文搜索、标签解析引擎、手机 PWA",
   "source": "zpa/PROJECTS.md §一",
   "risk": "只有单端（建议：补 pushurl 两条） / 只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/anotemanager",
-  "layer": "L0 在做",
+  "layer": "l0",
   "pinned": 1
  },
  {
   "name": "avocal",
   "kind": "repo",
   "board": "工程",
-  "status": "🟡按需",
+  "status": "on_demand",
   "stack": "Rust 单文件（基于 audio.cpp）",
   "deploy": "101 上跑；zmain 隧道 127.0.0.1:12703 → 101:18200",
   "next_step": "只做 TTS（已剔 ASR/A2A）；预设与缓存调优",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/avocal",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "artpal",
   "kind": "repo",
   "board": "工程",
-  "status": "🔴欠账",
+  "status": "debt",
   "stack": "Rust",
   "deploy": "未部署",
   "next_step": "决定继续/归档；先清理未提交改动",
   "source": "zpa/PROJECTS.md §一",
   "risk": "改动可能丢失（建议：提交或丢弃）",
   "repo_path": "/home/tony/zrepo/artpal",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "atray",
   "kind": "repo",
   "board": "工程",
-  "status": "🔵完成待维护",
+  "status": "maintenance",
   "stack": "?",
   "deploy": "桌面（101/Windows 侧）",
   "next_step": "按需维护",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/atray",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "asidepad",
   "kind": "repo",
   "board": "工程",
-  "status": "⚪暂停",
+  "status": "paused",
   "stack": "C / STM32",
   "deploy": "硬件",
   "next_step": "打样还是搁置",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/asidepad",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "alooplayer",
   "kind": "repo",
   "board": "工程",
-  "status": "🟡按需",
+  "status": "on_demand",
   "stack": "HTML/JS",
   "deploy": "zmain 18190（自带 nginx 实例、明文 HTTP，未纳入端口规范）",
   "next_step": "决定是否并入系统 nginx + TLS",
   "source": "zpa/PROJECTS.md §一",
   "risk": "无异地备份（建议：建仓双推） / 规范不彻底（建议：见 PORTS.md 第五节）",
   "repo_path": "/home/tony/zrepo/alooplayer",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "aarpg（暗影地牢）",
   "kind": "repo",
   "board": "工程",
-  "status": "⚪暂停",
+  "status": "paused",
   "stack": "HTML/JS",
   "deploy": "未部署",
   "next_step": "不在 git 里（无版本控制）→ 优先纳管",
   "source": "zpa/PROJECTS.md §一",
   "risk": "114M 代码/素材无版本控制、无备份（建议：立刻 git init + 双远端建库）",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "zlearn",
   "kind": "repo",
   "board": "工程",
-  "status": "⚪暂停",
+  "status": "paused",
   "stack": "—",
   "deploy": "—",
   "next_step": "命名待定或删库",
   "source": "zpa/PROJECTS.md §一",
   "risk": "占位噪音（建议：删库或明确定位）",
   "repo_path": "/home/tony/zrepo/zlearn",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "zpa",
   "kind": "repo",
   "board": "工程",
-  "status": "🟢活跃",
+  "status": "active",
   "stack": "Markdown",
   "deploy": "无服务（被 pi 加载）",
   "next_step": "见 PORTFOLIO 维护规则",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/zpa",
-  "layer": "L0 在做",
+  "layer": "l0",
   "pinned": 1
  },
  {
   "name": "deepseek-harness (dsh)",
   "kind": "repo",
   "board": "工程",
-  "status": "🟢活跃",
+  "status": "active",
   "stack": "TS/Node + Cordis 插件架构",
   "deploy": "zmain 127.0.0.1:28110 → 18110（别名 3080/3081）；A2A 12700",
   "next_step": "跟随上游升级",
   "source": "zpa/PROJECTS.md §一",
   "repo_path": "/home/tony/zrepo/deepseek-harness",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "container2run (c2r)",
   "kind": "repo",
   "board": "工程",
-  "status": "🔵完成待维护",
+  "status": "maintenance",
   "stack": "Bash",
   "deploy": "—",
   "next_step": "独立仓库现状待确认（znote 有归档稿）",
   "source": "zpa/PROJECTS.md §一",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "zscript",
   "kind": "infra",
   "board": "基建",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "含 deploy/{zmain,zlapwsl,zlapdeb,zvpsw,zsurface}、代理矩阵、nginx/端口相关脚本",
   "source": "zpa/PROJECTS.md §二",
   "risk": "只在本机（建议：一次性 git push origin（各仓库））",
   "repo_path": "/home/tony/zrepo/zscript",
-  "layer": "L0 在做",
+  "layer": "l0",
   "pinned": 1
  },
  {
   "name": "PORTS.md（zpa）",
   "kind": "infra",
   "board": "基建",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "与 nginx conf、nav.json 三处同步",
   "source": "zpa/PROJECTS.md §二",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "mkcert 本地 CA",
   "kind": "infra",
   "board": "基建",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "CA 私钥在 KeePass（条目 mkcert-rootCA）",
   "source": "zpa/PROJECTS.md §二",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "代理体系",
   "kind": "infra",
   "board": "基建",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "详见 anm facts proxy / facts network",
   "source": "zpa/PROJECTS.md §二",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "ComfyUI",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "图像/视频生成引擎（101 主力 GPU）",
   "deploy": "101 192.168.0.101:8188，zmain local",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/ComfyUI",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "llama.cpp",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "本地 LLM 推理（llama-server）",
   "deploy": "zmain 0.0.0.0:8080（明文，按需启动）",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/llama.cpp",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "vLLM-2080Ti-Definitive",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "2080Ti 定版 vLLM（实验）",
   "deploy": "zmain 按需",
   "source": "zpa/PROJECTS.md §三",
   "risk": "改动可能丢失（建议：提交或丢弃）",
   "repo_path": "/home/tony/zrepo/vLLM-2080Ti-Definitive",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "fastllm",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "国产推理框架（实验）",
   "deploy": "zmain 按需",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/fastllm",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "deepseek-harness",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "见上（本机工作台）",
   "deploy": "18110",
   "source": "zpa/PROJECTS.md §三",
   "repo_path": "/home/tony/zrepo/deepseek-harness",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "audio.cpp",
   "kind": "upstream",
   "board": "上游",
-  "status": "🧩上游",
+  "status": "upstream",
   "note": "TTS/ASR 引擎（avocal 依赖）",
   "deploy": "101 ~/ztool/audiocpp-release/cpu-portable",
   "source": "zpa/PROJECTS.md §三",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "aBigfileTether",
   "kind": "data",
   "board": "数据",
-  "status": "⚪暂停",
+  "status": "paused",
   "note": "大文件资源库（占位立项，Rust + deploy 骨架）",
   "source": "zpa/PROJECTS.md §四",
   "risk": "改动可能丢失（建议：提交或丢弃）",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "tether-zext",
   "kind": "data",
   "board": "数据",
-  "status": "🟡按需",
+  "status": "on_demand",
   "note": "zext 归档镜像（tether 分支跟踪）",
   "source": "zpa/PROJECTS.md §四",
   "risk": "无异地备份（建议：建仓双推）",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "zdb（MinIO）",
   "kind": "data",
   "board": "数据",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "对象存储权威库：zmain /mnt/data/zminio，S3 :9000，控制台 127.0.0.1:28101 → 18101",
   "source": "zpa/PROJECTS.md §四",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "znote（笔记库）",
   "kind": "data",
   "board": "数据",
-  "status": "🟢活跃",
+  "status": "active",
   "note": "记忆/想法/创作/参考的唯一权威位置（OneDrive 同步 + git）",
   "source": "zpa/PROJECTS.md §四",
-  "layer": "L1 活跃"
+  "layer": "l1"
  },
  {
   "name": "erotic / vocab / articals 等",
   "kind": "data",
   "board": "数据",
-  "status": "🟡按需",
+  "status": "on_demand",
   "note": "内容与语料目录（非工程项目）",
   "source": "zpa/PROJECTS.md §四",
-  "layer": "L2 按需"
+  "layer": "l2"
  },
  {
   "name": "zDashboard v0.x 旧稿",
   "kind": "repo",
   "board": "归档",
-  "status": "📦归档",
+  "status": "archived",
   "note": "已被现行 zdashboard 取代（归档位置：znote/working/archive/zDashboard/）",
   "source": "zpa/PROJECTS.md §六",
-  "layer": "L4 归档"
+  "layer": "l4"
  },
  {
   "name": "paraIJKT",
   "kind": "repo",
   "board": "归档",
-  "status": "📦归档",
+  "status": "archived",
   "note": "归档（归档位置：znote/working/archive/paraIJKT/）",
   "source": "zpa/PROJECTS.md §六",
-  "layer": "L4 归档"
+  "layer": "l4"
  },
  {
   "name": "container2run 设计稿",
   "kind": "repo",
   "board": "归档",
-  "status": "📦归档",
+  "status": "archived",
   "note": "已被 c2r.sh 内嵌实现取代（归档位置：znote/working/archive/container2run/）",
   "source": "zpa/PROJECTS.md §六",
-  "layer": "L4 归档"
+  "layer": "l4"
  },
  {
   "name": "闲鱼 AI 配音散单",
   "kind": "repo",
   "board": "归档",
-  "status": "📦归档",
+  "status": "archived",
   "note": "调研完成：可做但天花板低（2026-09 归档）（归档位置：znote/idea/副业-闲鱼AI配音散单.md）",
   "source": "zpa/PROJECTS.md §六",
-  "layer": "L4 归档"
+  "layer": "l4"
  },
  {
   "name": "自媒体：外网论坛趣事搬运",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 5,
   "completeness": 4,
   "importance": 4,
@@ -364,13 +364,13 @@
   "grade": "A",
   "note": "零成本起号；与 zdashboard 信息聚合（探针/热榜）天然协同 ★",
   "source": "znote/idea/自媒体：外网论坛趣事搬运.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "CPM-Pricing",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 4,
   "importance": 5,
@@ -378,13 +378,13 @@
   "grade": "A",
   "note": "⏸ 2026-10-15 作者降级为想法级：不进本季三角；html 工具未落盘，仅存公式+调研（D 因子方案保留）",
   "source": "znote/idea/CPM-Pricing/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "智能场景",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 4,
   "importance": 5,
@@ -392,13 +392,13 @@
   "grade": "A",
   "note": "战略体系总纲；缺\"选哪个做成 demo\"",
   "source": "znote/idea/智能场景.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "智能场景市场调研",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 4,
   "importance": 5,
@@ -406,13 +406,13 @@
   "grade": "A",
   "note": "182 行市场调研，已闭环",
   "source": "znote/idea/智能场景市场调研.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "本地AI代部署",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 4,
   "importance": 4,
@@ -420,13 +420,13 @@
   "grade": "A",
   "note": "上门/远程代部署本地 AI：现金流最直接的服务型变现",
   "source": "znote/idea/本地AI代部署/README.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "视频生成流水线",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 5,
@@ -434,13 +434,13 @@
   "grade": "A",
   "note": "Phase 4；PRD 已有，依赖 ComfyUI 管线（已有 comfy-web）",
   "source": "znote/idea/视频生成流水线/",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "副业-闲鱼AI配音散单",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 5,
   "completeness": 5,
   "importance": 2,
@@ -448,13 +448,13 @@
   "grade": "A",
   "note": "⏸ 已归档（天花板低）→ 分数高但重要性低，不建议重启",
   "source": "znote/idea/副业-闲鱼AI配音散单.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "做一个民主集中软件,目标git级普及率",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 4,
@@ -462,13 +462,13 @@
   "grade": "B",
   "note": "96 行成稿；需要一个小社区做试点",
   "source": "znote/idea/做一个民主集中软件,目标git级普及率.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "网络奇趣博物馆模式",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 4,
@@ -476,13 +476,13 @@
   "grade": "B",
   "note": "内容+游戏的混合形态，先定\"每天更新\"的产能",
   "source": "znote/idea/网络奇趣博物馆模式.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "CPM定价不等式",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 3,
   "importance": 4,
@@ -490,13 +490,13 @@
   "grade": "B",
   "note": "与 CPM-Pricing 合并落地",
   "source": "znote/idea/CPM定价不等式.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "aagent",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 3,
   "importance": 5,
@@ -504,13 +504,13 @@
   "grade": "B",
   "note": "纯 C 全平台 Agent 框架；backlog 核心项目，但工程量最大",
   "source": "znote/idea/aagent/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "原语化语法学习工具",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 3,
   "importance": 4,
@@ -518,13 +518,13 @@
   "grade": "B",
   "note": "与 Phase 3 语言学习系统同线",
   "source": "znote/idea/原语化语法学习工具.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "lecture/fft熵",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 4,
@@ -532,13 +532,13 @@
   "grade": "B",
   "note": "论文大纲 48 行；需要实验环境与跑分",
   "source": "znote/idea/lecture/fft熵.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "新词牌",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 4,
   "importance": 3,
@@ -546,13 +546,13 @@
   "grade": "B",
   "note": "44 行成稿；创作型，靠持续产出",
   "source": "znote/idea/新词牌.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "ProjectedTouch",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 3,
   "importance": 4,
@@ -560,13 +560,13 @@
   "grade": "B",
   "note": "投影+摄像头选型；建议作为智能场景的首个 demo",
   "source": "znote/idea/ProjectedTouch/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "AI投影伴侣",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 3,
   "importance": 4,
@@ -574,13 +574,13 @@
   "grade": "B",
   "note": "承接 ProjectedTouch",
   "source": "znote/idea/AI投影伴侣/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "MagicWand",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 3,
   "importance": 4,
@@ -588,13 +588,13 @@
   "grade": "B",
   "note": "UWB 模块 + IMU；单件 demo 传播性好",
   "source": "znote/idea/MagicWand/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "吃鸡",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 3,
@@ -602,13 +602,13 @@
   "grade": "B",
   "note": "玩法成稿；单人开发周期长",
   "source": "znote/idea/吃鸡.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "口袋农场",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 3,
@@ -616,13 +616,13 @@
   "grade": "B",
   "note": "同上",
   "source": "znote/idea/口袋农场.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "新式机械瞄具",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 4,
   "importance": 3,
@@ -630,13 +630,13 @@
   "grade": "B",
   "note": "70 行设计稿；需打样与工艺",
   "source": "znote/idea/新式机械瞄具.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "倒卖开源软件整合包",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 4,
@@ -644,13 +644,13 @@
   "grade": "B",
   "note": "与现有 ComfyUI/LLM 资产协同；要和正版/授权划清",
   "source": "znote/idea/倒卖开源软件整合包.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "HapticGrid",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 3,
   "importance": 4,
@@ -658,13 +658,13 @@
   "grade": "B",
   "note": "材料/工艺门槛高",
   "source": "znote/idea/HapticGrid/readme.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "动作游戏新概念",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -672,13 +672,13 @@
   "grade": "B",
   "note": "可作为既有 ARPG（aarpg）的玩法升级而不是新项目",
   "source": "znote/idea/动作游戏新概念.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "街霸连招练习器",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -686,13 +686,13 @@
   "grade": "B",
   "note": "小而明确；可当练习/传播品",
   "source": "znote/idea/街霸连招练习器.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "最小电源管理/MBM",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 3,
   "importance": 3,
@@ -700,13 +700,13 @@
   "grade": "B",
   "note": "硬件方案",
   "source": "znote/idea/最小电源管理/MBM.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "MetaPrompt词级效力评估",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -714,13 +714,13 @@
   "grade": "B",
   "note": "一页提示词工具，快",
   "source": "znote/idea/MetaPrompt词级效力评估.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "龙虾盒子计划/ai在地助手/ai厨房助手",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 4,
@@ -728,13 +728,13 @@
   "grade": "B",
   "note": "需要一台\"在地盒子\"（可用回收手机主板那条）",
   "source": "znote/idea/龙虾盒子计划/ai在地助手/ai厨房助手.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "自媒体AI美女",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -742,13 +742,13 @@
   "grade": "B",
   "note": "平台风险高（易封号）",
   "source": "znote/idea/自媒体AI美女.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "超精简速读",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -756,13 +756,13 @@
   "grade": "B",
   "note": "内容形式",
   "source": "znote/idea/超精简速读.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "许愿工程",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -770,13 +770,13 @@
   "grade": "B",
   "note": "方法型",
   "source": "znote/idea/许愿工程.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "标签距离学",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 3,
@@ -784,13 +784,13 @@
   "grade": "B",
   "note": "方法型，可并入笔记系统",
   "source": "znote/idea/标签距离学.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "盲人腰带",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 3,
@@ -798,13 +798,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/盲人腰带.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "外骨骼创新思路",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 4,
@@ -812,13 +812,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/外骨骼创新思路.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "一个跨平台interface",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 3,
@@ -826,13 +826,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/一个跨平台interface.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "3D打印推币机",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 2,
@@ -840,13 +840,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/3D打印推币机.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "直角三角形框架垃圾桶",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 2,
@@ -854,13 +854,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/直角三角形框架垃圾桶.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "小设备，脚控开关，配合obs，一件静音",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -868,13 +868,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/小设备，脚控开关，配合obs，一件静音.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "产品：脚部模块，风火轮",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 4,
@@ -882,13 +882,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/产品：脚部模块，风火轮.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "智能设备，指哪亮哪。家具ui化",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -896,13 +896,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/智能设备，指哪亮哪。家具ui化.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "单手摇杆",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 2,
@@ -910,13 +910,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/单手摇杆.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "桌面环境管理软件",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -924,13 +924,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/桌面环境管理软件.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "个人终端",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -938,13 +938,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/个人终端.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "操作系统_launcher",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 3,
@@ -952,13 +952,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/操作系统_launcher.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "四面体机器人技术是未来",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 3,
@@ -966,13 +966,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/四面体机器人技术是未来.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "DIY激光雕刻机",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 3,
@@ -980,13 +980,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/DIY激光雕刻机.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "微孔清洁",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 2,
@@ -994,13 +994,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/微孔清洁.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "硬币弹匣",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 2,
@@ -1008,13 +1008,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/硬币弹匣.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "molle夹，好像一个文件夹，但是可以双面折",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1022,13 +1022,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/molle夹，好像一个文件夹，但是可以双面折.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "电视上展示夹。",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1036,13 +1036,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/电视上展示夹。.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "小产品收纳无线充电头的小口袋",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1050,13 +1050,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/小产品收纳无线充电头的小口袋.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "鼠标连点器，卡在鼠标上",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 2,
@@ -1064,13 +1064,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/鼠标连点器，卡在鼠标上.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "开源游戏联盟倡议：…统一平台",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 3,
@@ -1078,13 +1078,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/开源游戏联盟倡议：…统一平台.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "救护车驾驶员模拟器",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1092,13 +1092,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/救护车驾驶员模拟器.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "回合制hgame，结合攒护波玩法",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1106,13 +1106,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/回合制hgame，结合攒护波玩法.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "手机端hgame，模拟边拍。主打日常",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1120,13 +1120,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/手机端hgame，模拟边拍。主打日常.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "究极缝合牧场物语无缝连接世界",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 3,
@@ -1134,13 +1134,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/究极缝合牧场物语无缝连接世界.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "游戏-格斗",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1148,13 +1148,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/游戏-格斗.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "游戏-横板过关",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1162,13 +1162,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/游戏-横板过关.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "弹幕统合",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 2,
@@ -1176,13 +1176,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/弹幕统合.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "欲望最小生成树管理模块",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1190,13 +1190,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/欲望最小生成树管理模块.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "模型文件收集工作",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 5,
   "completeness": 1,
   "importance": 2,
@@ -1204,13 +1204,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/模型文件收集工作.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "练手-爬虫",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 5,
   "completeness": 1,
   "importance": 1,
@@ -1218,13 +1218,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/练手-爬虫.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "针对模板二次元性格制作扭动小人",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 3,
@@ -1232,13 +1232,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/针对模板二次元性格制作扭动小人.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "辟谣浪人",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1246,13 +1246,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/辟谣浪人.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "视频思路：印象剪辑",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1260,13 +1260,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/视频思路：印象剪辑.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "视频思路：歪歌加主播名言",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1274,13 +1274,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/视频思路：歪歌加主播名言.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "直播主题-克服抑郁",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1288,13 +1288,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/直播主题-克服抑郁.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "直播主题-普坝100w挑战",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1302,13 +1302,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/直播主题-普坝100w挑战.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "小说-人工智能造神朋克",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1316,13 +1316,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/小说-人工智能造神朋克.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "科幻点子：外星文明交流唱歌",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 2,
@@ -1330,13 +1330,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/科幻点子：外星文明交流唱歌.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "使用四象增补六十四卦至256卦",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 2,
@@ -1344,13 +1344,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/使用四象增补六十四卦至256卦.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "污染面试题库",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 2,
@@ -1358,13 +1358,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/污染面试题库.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "问题试探策略库",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1372,13 +1372,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/问题试探策略库.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "AI练习谈判",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1386,13 +1386,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/AI练习谈判.MD",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "龙虾盒子计划/ai技能定制",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 4,
@@ -1400,13 +1400,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/龙虾盒子计划/ai技能定制.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "龙虾盒子计划/用新的技术去卖旧的东西",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1414,13 +1414,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/龙虾盒子计划/用新的技术去卖旧的东西.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "龙虾盒子计划/ai在地助手/未来大v定制化助手是大趋势",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1428,13 +1428,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/龙虾盒子计划/ai在地助手/未来大v定制化助手是大趋势.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "龙虾盒子计划/用回收手机主板部署小龙虾",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1442,13 +1442,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/龙虾盒子计划/用回收手机主板部署小龙虾.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "销售：LCtony是一种模板，而非个例",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 3,
@@ -1456,13 +1456,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/销售：LCtony是一种模板，而非个例.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "卖纸模",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 2,
   "importance": 2,
@@ -1470,13 +1470,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/卖纸模.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "MOLLE机能风饰品店",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 3,
@@ -1484,13 +1484,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/MOLLE机能风饰品店.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "桌搭定制外设店",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 3,
@@ -1498,13 +1498,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/桌搭定制外设店.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "小物微仓储",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 2,
   "importance": 2,
@@ -1512,13 +1512,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/小物微仓储.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "组酒桌练习局",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 4,
   "completeness": 1,
   "importance": 2,
@@ -1526,13 +1526,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/组酒桌练习局.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "潮玩，方寸天",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 2,
   "importance": 2,
@@ -1540,13 +1540,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/潮玩，方寸天.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "事业-适老化定制",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 4,
@@ -1554,13 +1554,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/事业-适老化定制.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "产品：谷子led壳",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1568,13 +1568,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/产品：谷子led壳.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "产品：赛博文玩。随机之美",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 3,
@@ -1582,13 +1582,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/产品：赛博文玩。随机之美.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "书包摊，透明书包移动摆摊躲避城管展开即摆",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 3,
   "completeness": 1,
   "importance": 2,
@@ -1596,13 +1596,13 @@
   "grade": "C",
   "note": "",
   "source": "znote/idea/书包摊，透明书包移动摆摊躲避城管展开即摆.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "做可以插内存条的显卡",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 1,
   "completeness": 1,
   "importance": 2,
@@ -1610,13 +1610,13 @@
   "grade": "D",
   "note": "冻结理由：需硬件产业链，不在你手里",
   "source": "znote/idea/做可以插内存条的显卡.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "机械飞升实现化",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 1,
   "completeness": 1,
   "importance": 1,
@@ -1624,13 +1624,13 @@
   "grade": "D",
   "note": "冻结理由：纯概念",
   "source": "znote/idea/机械飞升实现化.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "桌搭体验店",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 1,
   "completeness": 1,
   "importance": 2,
@@ -1638,13 +1638,13 @@
   "grade": "D",
   "note": "冻结理由：重资产线下店，与\"轻创业\"相反",
   "source": "znote/idea/桌搭体验店.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "鼠标模具",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 2,
@@ -1652,13 +1652,13 @@
   "grade": "D",
   "note": "冻结理由：开模成本高，回报不明",
   "source": "znote/idea/鼠标模具.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  },
  {
   "name": "战术裁缝",
   "kind": "idea",
   "board": "想法",
-  "status": "💭想法",
+  "status": "idea",
   "feasibility": 2,
   "completeness": 1,
   "importance": 2,
@@ -1666,6 +1666,6 @@
   "grade": "D",
   "note": "冻结理由：只能当爱好",
   "source": "znote/idea/战术裁缝.md",
-  "layer": "L3 想法"
+  "layer": "l3"
  }
 ]

@@ -12,55 +12,6 @@
 import db, { checkpoint } from '../db.js';
 import { nowIso, msOf } from '../lib/time.js';
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS agg_item (
-    source_id   TEXT NOT NULL,
-    item_id     TEXT NOT NULL,
-    title       TEXT,
-    url         TEXT,
-    created_at  TEXT,
-    first_seen  TEXT NOT NULL,
-    last_seen   TEXT NOT NULL,
-    meta_json   TEXT,
-    ord         INTEGER,
-    PRIMARY KEY (source_id, item_id)
-  )
-`);
-db.exec('CREATE INDEX IF NOT EXISTS idx_agg_item_src ON agg_item (source_id, created_at DESC)');
-db.exec('CREATE INDEX IF NOT EXISTS idx_agg_item_seen ON agg_item (source_id, last_seen)');
-db.exec('CREATE INDEX IF NOT EXISTS idx_agg_item_first ON agg_item (source_id, first_seen)');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS agg_state (
-    source_id   TEXT PRIMARY KEY,
-    label       TEXT,
-    fetched_at  TEXT,
-    status      TEXT,
-    error       TEXT,
-    item_count  INTEGER DEFAULT 0,
-    new_count   INTEGER DEFAULT 0,
-    duration_ms INTEGER,
-    last_ok_at  TEXT,
-    fail_count  INTEGER DEFAULT 0,
-    opened_at   TEXT
-  )
-`);
-
-// 老库补列（幂等）；opened_at 是新增的「未读水位」，首次升级时用上次探测时间初始化，
-// 避免把历史 800+ 条全部标成未读（之后由 markOpened 正常维护）。
-function ensureColumn(table, col, ddl) {
-  const has = db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === col);
-  if (has) return false;
-  db.exec(ddl);
-  return true;
-}
-
-ensureColumn('agg_item', 'ord', 'ALTER TABLE agg_item ADD COLUMN ord INTEGER');
-ensureColumn('agg_state', 'last_ok_at', 'ALTER TABLE agg_state ADD COLUMN last_ok_at TEXT');
-ensureColumn('agg_state', 'fail_count', 'ALTER TABLE agg_state ADD COLUMN fail_count INTEGER DEFAULT 0');
-if (ensureColumn('agg_state', 'opened_at', 'ALTER TABLE agg_state ADD COLUMN opened_at TEXT')) {
-  db.exec("UPDATE agg_state SET opened_at = COALESCE(fetched_at, datetime('now'))");
-}
-
 const stmts = {
   // 新条目：插入成功 changes=1（first_seen == last_seen）；老条目：只更新 last_seen 等
   insertItem: db.prepare(`

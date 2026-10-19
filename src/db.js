@@ -7,6 +7,7 @@
 
 import Database from 'better-sqlite3';
 import { DB_PATH, CHECKPOINT_MODE } from './config.js';
+import { migrate } from './migrations.js';
 
 const db = new Database(DB_PATH);
 
@@ -14,6 +15,9 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
 db.pragma('wal_autocheckpoint = 100');
+
+// 版本化建表/迁移（PRAGMA user_version），见 src/migrations.js
+const schemaVersion = migrate(db);
 
 let timer = null;
 let planned = false;
@@ -53,39 +57,7 @@ export function hasPendingCheckpoint() {
   return planned || timer != null;
 }
 
-// zVocab
-db.exec(`
-  CREATE TABLE IF NOT EXISTS zVocab (
-    word        TEXT PRIMARY KEY,
-    status      TEXT NOT NULL DEFAULT 'unknown',
-    first_seen  TEXT,
-    last_seen   TEXT,
-    click_count INTEGER DEFAULT 0
-  )
-`);
-
-// zArticles
-db.exec(`
-  CREATE TABLE IF NOT EXISTS zArticles (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    title     TEXT,
-    content   TEXT NOT NULL,
-    created   TEXT NOT NULL
-  )
-`);
-
-// zWordArticles
-db.exec(`
-  CREATE TABLE IF NOT EXISTS zWordArticles (
-    word        TEXT NOT NULL,
-    article_id  INTEGER NOT NULL,
-    count       INTEGER DEFAULT 1,
-    PRIMARY KEY (word, article_id),
-    FOREIGN KEY (article_id) REFERENCES zArticles(id) ON DELETE CASCADE
-  )
-`);
-
-console.log(`[db] 已连接: ${DB_PATH}（checkpoint=${CHECKPOINT_MODE}）`);
-console.log('[db] 表: zVocab, zArticles, zWordArticles');
+console.log(`[db] 已连接: ${DB_PATH}（checkpoint=${CHECKPOINT_MODE}, schema=v${schemaVersion}）`);
+console.log('[db] 表: zVocab, zArticles, zWordArticles, agg_item, agg_state, zproject');
 
 export default db;

@@ -99,9 +99,19 @@ IMAGE_ARCHIVE="\$SCRIPT_DIR/image.tar.gz"
 LOADED_IMAGES=()
 IMAGE_PREEXISTED=false
 
+# Prefer Docker Compose v2 plugin, fall back to standalone docker-compose
+COMPOSE="docker compose"
+if ! docker compose version >/dev/null 2>&1; then
+    if command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE="docker-compose"
+    else
+        die "需要 Docker Compose（docker compose 或 docker-compose）"
+    fi
+fi
+
 # Daemon mode: no cleanup trap.
 # Image is retained on the host after exit.
-# To stop the service: docker compose -f "\$COMPOSE_FILE" down
+# To stop the service: \$COMPOSE -f "\$COMPOSE_FILE" down
 HEADER
     else
         cat <<HEADER
@@ -128,11 +138,21 @@ IMAGE_ARCHIVE="\$SCRIPT_DIR/image.tar.gz"
 LOADED_IMAGES=()
 IMAGE_PREEXISTED=false
 
+# Prefer Docker Compose v2 plugin, fall back to standalone docker-compose
+COMPOSE="docker compose"
+if ! docker compose version >/dev/null 2>&1; then
+    if command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE="docker-compose"
+    else
+        die "需要 Docker Compose（docker compose 或 docker-compose）"
+    fi
+fi
+
 # Blocking mode: cleanup runs on any exit (Ctrl-C, kill, error).
 cleanup() {
     echo ""
     log_info "Shutting down..."
-    docker compose -f "\$COMPOSE_FILE" down 2>/dev/null || true
+    \$COMPOSE -f "\$COMPOSE_FILE" down 2>/dev/null || true
 
     if [ "\$IMAGE_PREEXISTED" = false ]; then
         for img in "\${LOADED_IMAGES[@]:-}"; do
@@ -361,22 +381,22 @@ BODY
     # ── Mode-specific: final compose command ─────────────────────────────────
     if [ "$daemonize" = "true" ]; then
         echo '# Stop any existing containers from this compose (handles different project names)'
-        echo 'docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true'
+        echo '$COMPOSE -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true'
         echo '# Also force-remove containers by name from compose service names'
         echo 'for svc in $(grep -oP "^[[:space:]]+(\w+):" "$COMPOSE_FILE" | sed "s/://g; s/ //g"); do'
         echo '    docker rm -f "$svc" 2>/dev/null || true'
         echo 'done'
-        echo 'docker compose -f "$COMPOSE_FILE" up -d'
+        echo '$COMPOSE -f "$COMPOSE_FILE" up -d'
         echo 'log_success "Service started in background."'
-        echo 'log_info "To stop: docker compose -f \"$COMPOSE_FILE\" down"'
+        echo 'log_info "To stop: $COMPOSE -f \"$COMPOSE_FILE\" down"'
     else
         echo '# Stop any existing containers from this compose (handles different project names)'
-        echo 'docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true'
+        echo '$COMPOSE -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true'
         echo '# Also force-remove containers by name from compose service names'
         echo 'for svc in $(grep -oP "^[[:space:]]+(\\w+):" "$COMPOSE_FILE" | sed "s/://g; s/ //g"); do'
         echo '    docker rm -f "$svc" 2>/dev/null || true'
         echo 'done'
-        echo 'docker compose -f "$COMPOSE_FILE" up'
+        echo '$COMPOSE -f "$COMPOSE_FILE" up'
     fi
 }
 

@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.2.1** · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.2.2** · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -60,7 +60,8 @@ Tools 里的 **📋 项目台账**：zpa 清单落进 `zdb.db`，在面板里看
 - 「同步 git」改为**异步 + 并发 4**，每仓库只用 3 次 git 调用（原来 7 次同步调用会阻塞事件循环）
 - 想法带 F/C/I 评分与 A/B/C/D 档 + 判决按钮（活/搁/死）；Tools 角标 = 待判想法数
 - 写接口有枚举校验（status/layer/verdict、F/C/I 1–5），防止状态空间漂移
-- 枚举与展示映射集中在前端/后端共用的 `public/projects-meta.js`；侧栏项目列表来自真实台账（不再是静态占位）
+- 存储用稳定 code（`active` / `on_demand` / `l0` …），展示映射集中在前端/后端共用的 `public/projects-meta.js`；旧 emoji/中文值会被自动归一化
+- 侧栏项目列表来自真实台账（不再是静态占位）
 
 ### 英语学习（Vocab）
 
@@ -131,12 +132,14 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 
 ## 数据库约定
 
+- **迁移**：`src/migrations.js` 用 `PRAGMA user_version` 顺序执行；新增表/字段只加迁移，不要在各 store 里散落 DDL
 - SQLite WAL 模式、`wal_autocheckpoint = 100`、`busy_timeout = 5000`
 - **每次写事务结束后调用 `checkpoint()`**（`src/db.js`），不要直接写 `db.pragma(...)`：
   - 本机默认 `throttle`：写后 500ms 合并一次，避免每点一个单词都 fsync
   - 容器/单文件 bind-mount 用 `CHECKPOINT=always`：每次写立刻把 WAL 合回主 `.db`
   - 关机时 `flushCheckpoint()` 强制落盘；`busy=1` 会打 warn 而不是静默吞掉
 - 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`），不再与 SQLite `localtime` 混用
+- 历史表 `zInfra` / `zObjects` 已由 `npm run archive-legacy -- --drop` 归档并从主库删除（归档文件在 `BACKUP_DIR/legacy/`）
 
 ## 部署
 
@@ -176,6 +179,8 @@ systemctl list-timers zdashboard-backup.timer
 
 ### .run 便携部署
 
+要求：Docker + Docker Compose（v2 插件或独立的 `docker-compose`；c2r 会自动回退）+ `makeself`。
+
 ```bash
 bash deploy/build_run.sh
 
@@ -193,14 +198,17 @@ docker compose -f deploy/docker-compose.yml up -d
 ```
 
 首次部署如果 `ZDB_PATH` 指向的文件不存在，Docker 会把它建成目录——先 `touch` 一个空文件。
+镜像内 `/data` 已 `chown node`，单文件挂载时 WAL/SHM 可正常创建；容器使用 `CHECKPOINT=always`。
 
 ### 本地开发
 
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；24 个用例）
+npm test           # node:test（内存库，不碰生产数据；27 个用例）
 npm run backup     # SQLite 在线备份
+npm run archive-legacy            # 只归档历史表（zInfra/zObjects）
+npm run archive-legacy -- --drop  # 归档后从主库删除
 npm run seed       # 仅手动重新生成 src/projects/seed.json
 ```
 
@@ -213,6 +221,7 @@ zdashboard/
 │   ├── app.js              # Express 装配（测试可直接 import）
 │   ├── config.js           # 环境变量（无 config.json）
 │   ├── db.js               # SQLite + checkpoint 策略
+│   ├── migrations.js       # PRAGMA user_version 版本化迁移
 │   ├── lib/
 │   │   ├── time.js         # ISO 时间工具
 │   │   └── rate-limit.js   # /api 限流
@@ -225,13 +234,20 @@ zdashboard/
 │   └── routes/             # articles / vocab / agg / projects
 ├── public/
 │   ├── index.html          # 单页骨架（资产带 ?v=<版本>）
-│   ├── app.js              # ES module 前端
+│   ├── app.js              # 启动入口（注册应用 + 角标）
+│   ├── core.js             # 工具/侧栏/应用注册表/布局/状态栏
+│   ├── vocab.js            # 英语学习模块
+│   ├── nav.js              # 服务导航模块
+│   ├── agg.js              # 信息聚合模块
+│   ├── projects.js         # 项目台账模块
 │   ├── tokenize.js         # 前后端共用分词器
 │   ├── projects-meta.js    # 前后端共用台账枚举
 │   ├── nav.json            # 黄页数据源
 │   └── style.css
-├── scripts/backup.js       # SQLite 在线备份
-├── test/                   # node:test（tokenize / agg / projects / api / auth / rate-limit）
+├── scripts/
+│   ├── backup.js           # SQLite 在线备份
+│   └── archive-legacy.js   # 历史表归档/删除
+├── test/                   # node:test（tokenize / agg / projects / api / auth / rate-limit / migrations）
 ├── deploy/                 # Dockerfile / compose / systemd 单元 / build_run.sh / c2r.sh
 ├── .github/workflows/      # CI：npm ci + npm test
 └── docs/                   # 路线图与逐版本记录

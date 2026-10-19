@@ -6,48 +6,9 @@
 
 import db, { checkpoint } from '../db.js';
 import { nowIso } from '../lib/time.js';
-import { STATUSES, LAYERS, VERDICTS, gradeOf } from '../../public/projects-meta.js';
+import { STATUSES, LAYERS, VERDICTS, gradeOf, normalizeStatus, normalizeLayer } from '../../public/projects-meta.js';
 
 export { STATUSES, LAYERS, VERDICTS };
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS zproject (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    name               TEXT NOT NULL UNIQUE,      -- 唯一键（导入幂等靠它）
-    kind               TEXT,                       -- repo | infra | upstream | data | idea | service
-    board              TEXT,                       -- 板块：工程 / 基建 / 想法（Portfolio 的口径）
-    layer              TEXT,                       -- L0 在做 / L1 活跃 / L2 按需 / L3 想法 / L4 归档
-    status             TEXT,                       -- 🟢活跃 🟡按需 ⚪暂停 🔴欠账 📦归档 💭想法
-    -- 想法评分（只有 kind='idea' 有）
-    feasibility        INTEGER,                    -- F 1-5
-    completeness       INTEGER,                    -- C 1-5
-    importance         INTEGER,                    -- I 1-5
-    score              INTEGER,                    -- F+C+I
-    grade              TEXT,                       -- A/B/C/D
-    verdict            TEXT,                       -- 想法判决：alive / parked / killed
-    -- 工程信息
-    stack              TEXT,
-    repo_path          TEXT,
-    remote             TEXT,
-    deploy             TEXT,
-    ports              TEXT,
-    next_step          TEXT,
-    risk               TEXT,
-    note               TEXT,
-    source             TEXT,                       -- 来源文件 / 路径
-    -- git 派生（/api/projects/sync 刷新）
-    last_commit_at     TEXT,
-    last_commit_subject TEXT,
-    dirty              INTEGER,
-    ahead              INTEGER,
-    synced_at          TEXT,
-    pinned             INTEGER DEFAULT 0,
-    created_at         TEXT,
-    updated_at         TEXT
-  )
-`);
-db.exec('CREATE INDEX IF NOT EXISTS idx_project_kind ON zproject (kind, grade)');
-db.exec('CREATE INDEX IF NOT EXISTS idx_project_layer ON zproject (layer)');
 
 const COLS = [
   'name', 'kind', 'board', 'layer', 'status', 'feasibility', 'completeness', 'importance',
@@ -84,6 +45,9 @@ export function upsertMany(rows) {
     for (const r of list) {
       const row = { now };
       for (const c of COLS) row[c] = r[c] ?? null;
+      // 兼容旧 seed / 旧接口的 emoji 值；未知值原样保留，不丢数据
+      row.status = normalizeStatus(row.status) ?? row.status;
+      row.layer = normalizeLayer(row.layer) ?? row.layer;
       ins.run(row);
       n++;
     }
@@ -98,8 +62,8 @@ export function list({ kind, board, layer, status, grade, verdict, q } = {}) {
   const args = {};
   if (kind) { where.push('kind = @kind'); args.kind = kind; }
   if (board) { where.push('board = @board'); args.board = board; }
-  if (layer) { where.push('layer = @layer'); args.layer = layer; }
-  if (status) { where.push('status = @status'); args.status = status; }
+  if (layer) { where.push('layer = @layer'); args.layer = normalizeLayer(layer) || layer; }
+  if (status) { where.push('status = @status'); args.status = normalizeStatus(status) || status; }
   if (grade) { where.push('grade = @grade'); args.grade = grade; }
   if (verdict) { where.push('verdict = @verdict'); args.verdict = verdict; }
   if (q) {
@@ -128,8 +92,16 @@ const scoreNum = (v, field) => {
 export function create(data = {}) {
   const name = String(data.name ?? '').trim();
   if (!name) throw new Error('缺少 name');
-  if (data.status != null && data.status !== '' && !STATUSES.includes(data.status)) throw new Error(`无效 status: ${data.status}`);
-  if (data.layer != null && data.layer !== '' && !LAYERS.includes(data.layer)) throw new Error(`无效 layer: ${data.layer}`);
+  if (data.status != null && data.status !== '') {
+    const v = normalizeStatus(data.status);
+    if (!v) throw new Error(`无效 status: ${data.status}`);
+    data.status = v;
+  }
+  if (data.layer != null && data.layer !== '') {
+    const v = normalizeLayer(data.layer);
+    if (!v) throw new Error(`无效 layer: ${data.layer}`);
+    data.layer = v;
+  }
   if (data.verdict != null && data.verdict !== '' && !VERDICTS.includes(data.verdict)) throw new Error(`无效 verdict: ${data.verdict}`);
   for (const k of ['feasibility', 'completeness', 'importance']) {
     if (data[k] != null && data[k] !== '') data[k] = scoreNum(data[k], k);
@@ -158,8 +130,16 @@ export function update(id, patch = {}) {
   const data = {};
   for (const k of EDITABLE) if (k in patch) data[k] = patch[k];
 
-  if ('status' in data && !STATUSES.includes(data.status)) throw new Error(`无效 status: ${data.status}`);
-  if ('layer' in data && !LAYERS.includes(data.layer)) throw new Error(`无效 layer: ${data.layer}`);
+  if ('status' in data) {
+    const v = normalizeStatus(data.status);
+    if (!v) throw new Error(`无效 status: ${data.status}`);
+    data.status = v;
+  }
+  if ('layer' in data) {
+    const v = normalizeLayer(data.layer);
+    if (!v) throw new Error(`无效 layer: ${data.layer}`);
+    data.layer = v;
+  }
   if ('verdict' in data && data.verdict != null && data.verdict !== '' && !VERDICTS.includes(data.verdict)) {
     throw new Error(`无效 verdict: ${data.verdict}`);
   }
