@@ -14,7 +14,8 @@ import { DB_PATH } from '../src/config.js';
 
 const TABLES = ['zInfra', 'zObjects'];
 const DROP = process.argv.includes('--drop');
-const OUT_DIR = process.env.LEGACY_DIR || resolve(dirname(DB_PATH), 'backup', 'legacy');
+const BASE_BACKUP = process.env.BACKUP_DIR || resolve(dirname(DB_PATH), 'backup');
+const OUT_DIR = process.env.LEGACY_DIR || resolve(BASE_BACKUP, 'legacy');
 const stamp = (() => {
   const d = new Date();
   const p = n => String(n).padStart(2, '0');

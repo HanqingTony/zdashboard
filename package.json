@@ -12,8 +12,8 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "seed": "node src/projects/fromMarkdown.js",
     "test": "node --test",
-    "backup": "node scripts/backup.js",
-    "archive-legacy": "node scripts/archive-legacy.js"
+    "backup": "node --env-file-if-exists=.env scripts/backup.js",
+    "archive-legacy": "node --env-file-if-exists=.env scripts/archive-legacy.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { ZPA_DIR, ZREPO_DIR } from '../config.js';
-import { STATUS, LAYER } from '../../public/projects-meta.js';
+import { STATUS, STATUSES, LAYER } from '../../public/projects-meta.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = resolve(__dirname, 'seed.json');
@@ -236,6 +236,7 @@ export function buildSeed({ zpaDir = ZPA_DIR, zrepoDir = ZREPO_DIR } = {}) {
   for (const p of projects) {
     if (!p.name) throw new Error('存在空项目名（清单表格可能改版）');
     if (names.has(p.name)) throw new Error(`项目名重复: ${p.name}`);
+    if (!STATUSES.includes(p.status)) throw new Error(`未知状态: ${p.name} → ${p.status}`);
     names.add(p.name);
   }
   return projects;
