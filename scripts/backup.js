@@ -14,7 +14,10 @@ const BACKUP_DIR = process.env.BACKUP_DIR || resolve(dirname(DB_PATH), 'backup',
 const KEEP = Math.max(1, parseInt(process.env.BACKUP_KEEP || '7', 10) || 7);
 
 function stamp() {
-  return new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').replace(/\.(\d{3})Z$/, '-$1');
+  // 用本地时间命名，备份目录里一眼能对上运维时间
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${String(d.getMilliseconds()).padStart(3, '0')}`;
 }
 
 mkdirSync(BACKUP_DIR, { recursive: true });
