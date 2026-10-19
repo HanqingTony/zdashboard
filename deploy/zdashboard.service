@@ -1,0 +1,41 @@
+[Unit]
+Description=zDashboard — 个人仪表盘 / 服务导航（黄页 @ nginx 18100）
+Documentation=https://github.com/HanqingTony/zdashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tony
+Group=tony
+WorkingDirectory=/home/tony/zrepo/zdashboard
+Environment=HOST=127.0.0.1
+Environment=PORT=28100
+Environment=DB_PATH=/home/tony/zdata/zdb.db
+Environment=CHECKPOINT=throttle
+Environment=NODE_ENV=production
+# 信息聚合的凭据（YouTube key / Reddit app / 可选 AUTH_TOKEN）放这里，不进仓库
+EnvironmentFile=-/home/tony/zdata/zdashboard/agg.env
+ExecStart=/home/tony/.local/share/pnpm/bin/node server.js
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zdashboard
+
+# 最小权限：只允许写 /home/tony/zdata（数据库 / 备份），仓库与 home 其余部分只读。
+# git 同步与版本探针已使用 GIT_OPTIONAL_LOCKS=0 / --no-optional-locks，不会写 .git/index。
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/tony/zdata
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

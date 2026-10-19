@@ -30,3 +30,17 @@ test('wordCounts 与 tokenize 一致', () => {
   }
   assert.deepEqual([...counts], [...fromTokens]);
 });
+
+test('URL / 邮箱 / 代码不进入词库，但仍原样显示', () => {
+  const input = 'Visit https://example.com/a?b=1 or mail me@example.com. Use `npm test` please.\n```js\nconst x = 1;\n```';
+  const tokens = tokenize(input);
+  assert.equal(tokens.map(t => t.text).join(''), normalizeText(input));
+  const words = tokens.filter(t => t.type === 'word').map(t => t.key);
+  assert.deepEqual(words, ['visit', 'or', 'mail', 'use', 'please']);
+
+  const counts = wordCounts(input);
+  assert.equal(counts.has('example'), false);
+  assert.equal(counts.has('npm'), false);
+  assert.equal(counts.has('const'), false);
+  assert.equal(counts.get('visit'), 1);
+});

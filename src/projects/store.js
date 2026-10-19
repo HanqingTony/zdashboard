@@ -6,6 +6,9 @@
 
 import db, { checkpoint } from '../db.js';
 import { nowIso } from '../lib/time.js';
+import { STATUSES, LAYERS, VERDICTS, gradeOf } from '../../public/projects-meta.js';
+
+export { STATUSES, LAYERS, VERDICTS };
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS zproject (
@@ -46,10 +49,6 @@ db.exec(`
 db.exec('CREATE INDEX IF NOT EXISTS idx_project_kind ON zproject (kind, grade)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_project_layer ON zproject (layer)');
 
-export const STATUSES = ['🟢活跃', '🟡按需', '🔵完成待维护', '⚪暂停', '🔴欠账', '🧩上游', '📦归档', '💭想法'];
-export const LAYERS = ['L0 在做', 'L1 活跃', 'L2 按需', 'L3 想法', 'L4 归档'];
-export const VERDICTS = ['alive', 'parked', 'killed'];
-
 const COLS = [
   'name', 'kind', 'board', 'layer', 'status', 'feasibility', 'completeness', 'importance',
   'score', 'grade', 'verdict', 'stack', 'repo_path', 'remote', 'deploy', 'ports',
@@ -63,8 +62,6 @@ const EDITABLE = Object.freeze([
   'board', 'layer', 'status', 'verdict', 'next_step', 'risk', 'note', 'stack',
   'deploy', 'ports', 'repo_path', 'remote', 'pinned', 'feasibility', 'completeness', 'importance',
 ]);
-
-const gradeOf = (score) => score >= 12 ? 'A' : score >= 9 ? 'B' : score >= 6 ? 'C' : 'D';
 
 /** 导入用：按 name 幂等 upsert；操作字段不被空值/清单覆盖 */
 export function upsertMany(rows) {

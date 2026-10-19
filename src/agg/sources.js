@@ -5,18 +5,23 @@
 //   probe() → { items: [{ id, title, url, createdAt, meta: [...] }] }
 //   id 必须稳定（用于「新条目」判定），createdAt 为 ISO 字符串（可为空）
 //
-// 网络：只走直连（实测 civarchive.com / hf-mirror.com 直连可用，不走代理）；
-//       zdashboard 的 systemd 单元不需要代理环境变量。
+// 网络：国内平台与 hf-mirror/civarchive 走直连；出境源按 proxyMode 走本机代理
+//       （'on' 必走 / 'auto' 先直连失败再走），不依赖系统代理 env。
 
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import os from 'node:os';
 import path from 'node:path';
+import { daysAgo } from '../lib/time.js';
 
 const HF_BASE = 'https://hf-mirror.com';        // 直连可用（huggingface.co 需代理：直连 000）
 const CA_BASE = 'https://civarchive.com';       // Civitai 存档站，直连可用
 
 // 出境站点（红迪 / YouTube）走本机代理；国内平台直连（不绕代理）
-export const PROXY_URL = process.env.AGG_PROXY || 'http://127.0.0.1:12809';
+const PROXY_URL = process.env.AGG_PROXY || 'http://127.0.0.1:12809';
+
+// 榜单类 ID：同一话题隔天再上榜应重新提醒（每日榜/热搜按天去重）
+const dayKey = () => new Date().toISOString().slice(0, 10);
 let _undici = null;
 async function undiciMod() {
   if (!_undici) _undici = await import('undici');
@@ -76,12 +81,6 @@ async function parseXml(txt) {
   return _xmlParser.parse(txt);
 }
 function asArray(x) { return x == null ? [] : Array.isArray(x) ? x : [x]; }
-
-function daysAgo(iso) {
-  if (!iso) return null;
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-  return Number.isFinite(d) ? d : null;
-}
 
 // ---------- 探针 1 类：HuggingFace 组织最新模型 ----------
 function hfAuthorProbe(author, { limit = 30, take = 8 } = {}) {
@@ -184,7 +183,7 @@ const weiboHotProbe = async () => {
   if (rows.length === 0) throw new Error('接口未返回 realtime（可能需要 cookie）');
   return {
     items: hotItemsMapper(r => ({
-      id: r.word,
+      id: `${dayKey()}:${r.word}`,
       title: r.word,
       url: `https://s.weibo.com/weibo?q=${encodeURIComponent('#' + r.word + '#')}`,
       meta: [r.label_name || null, r.num != null ? `${Math.round(r.num / 1000)}k` : null].filter(Boolean),
@@ -217,7 +216,7 @@ const douyinHotProbe = async () => {
   if (rows.length === 0) throw new Error('接口未返回 word_list');
   return {
     items: hotItemsMapper(r => ({
-      id: r.word,
+      id: `${dayKey()}:${r.word}`,
       title: r.word,
       url: `https://www.douyin.com/search/${encodeURIComponent(r.word)}`,
       meta: [r.hot_value != null ? `${(r.hot_value / 10000).toFixed(0)}万` : null].filter(Boolean),
@@ -257,7 +256,7 @@ function gTrendsProbe(geo = 'US', hl = 'en-US') {
         const traffic = r['ht:approx_traffic'] ? `${r['ht:approx_traffic']} 搜索` : null;
         const src = r['ht:picture_source'] || null;
         return {
-          id: title,
+          id: `${dayKey()}:${title}`,
           title,
           url: `https://trends.google.com/trends/explore?geo=${geo}&q=${encodeURIComponent(title)}`,
           meta: [traffic, src].filter(Boolean),
@@ -338,7 +337,7 @@ const blueskyTrendsProbe = async () => {
   if (!rows.length) throw new Error('没有 topics');
   return {
     items: hotItemsMapper(t => ({
-      id: t.topic || t.displayName || t.link,
+      id: `${dayKey()}:${t.topic || t.displayName || t.link}`,
       title: t.displayName || t.topic || '',
       url: t.link ? `https://bsky.app${t.link}` : 'https://bsky.app/explore',
       meta: [(t.description || '').slice(0, 46)].filter(Boolean),
@@ -353,7 +352,7 @@ const mastodonTrendsProbe = async () => {
   if (!rows.length) throw new Error('没有趋势标签');
   return {
     items: hotItemsMapper(t => ({
-      id: t.name,
+      id: `${dayKey()}:${t.name}`,
       title: `#${t.name}`,
       url: t.url || `https://mastodon.social/tags/${t.name}`,
       meta: [t.history?.[0]?.uses != null ? `${t.history[0].uses} 帖/今日` : null,
@@ -395,7 +394,7 @@ const wikiTopProbe = async () => {
     .slice(0, 12);
   return {
     items: hotItemsMapper(a => ({
-      id: a.article,
+      id: `${usedDay}:${a.article}`,
       title: a.article.replace(/_/g, ' '),
       url: `https://en.wikipedia.org/wiki/${encodeURIComponent(a.article)}`,
       meta: [`${Number(a.views).toLocaleString()} 次浏览`, usedDay].filter(Boolean),
@@ -422,10 +421,15 @@ const githubTrendingProbe = async () => {
 // ---------- 探针 N 类：版本更新（GitHub atom feed + 本地 git describe 对比） ----------
 // 用 atom feed 而非 REST API：共享代理出口 IP 的 API 限额（60/时）易被吃光；feed 走 web 域，不限额。
 // 本地版本 = 源码仓库的 `git describe --tags --always`（z-llamacpp/build.sh、z-ftllm/env.conf 的默认仓库位置）
-function localDescribe(dir) {
+const execFileP = promisify(execFile);
+async function localDescribe(dir) {
   try {
-    return execFileSync('git', ['-C', dir, 'describe', '--tags', '--always'],
-      { encoding: 'utf8', timeout: 5000 }).trim() || null;
+    const { stdout } = await execFileP('git', ['-C', dir, 'describe', '--tags', '--always'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },   // 只读 home 的 systemd hardening 下也能跑
+    });
+    return stdout.trim() || null;
   } catch { return null; }
 }
 // describe → { tag, dist }：v0.1.8.2-438-gf026aa53 → {tag:'v0.1.8.2',dist:438}；b11195-5-g81bc6b83f → {tag:'b11195',dist:5}；裸 sha → {tag:sha,dist:0}
@@ -455,7 +459,7 @@ function githubVersionProbe({ repo, feed, name, localDir, take = 10 }) {
     const doc = await parseXml(txt);
     const rows = asArray(doc?.feed?.entry);
     if (!rows.length) throw new Error('feed 里没有 entry');
-    const local = parseDescribe(localDescribe(localDir));
+    const local = parseDescribe(await localDescribe(localDir));
     const localShort = local ? (local.dist ? `${local.tag}+${local.dist}` : local.tag) : null;
     return {
       items: rows.slice(0, take).map(e => {

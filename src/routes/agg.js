@@ -14,15 +14,15 @@ import {
   recordProbe, listItems, getStateMap, unreadCount,
   markOpened, pruneItems, staleness,
 } from '../agg/store.js';
-import { nowIso } from '../lib/time.js';
 
 const router = Router();
 
 export const TTL_MS = 30 * 60 * 1000;   // 缓存 30 分钟
 const CONCURRENCY = 4;                  // 全量刷新时同时探测的源数量
 
-let lastRefreshAt = null;
-const inflight = new Map();             // sourceId -> Promise
+let lastPruneAt = 0;
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;   // 保留策略最多每小时跑一次
+const inflight = new Map();                  // sourceId -> Promise
 
 // 源声明了 requires.env 但环境里没有 → 「待配置」：不探测、不报错、不标过期
 function missingEnv(source) {
@@ -71,12 +71,14 @@ function snapshot() {
   const states = getStateMap();
   const sources = SOURCES.map(s => sourceView(s, { states, now }));
   const totalNew = sources.reduce((n, s) => n + (s.status === 'unconfigured' ? 0 : s.newCount), 0);
-  const newest = sources
-    .map(s => s.lastOkAt || s.fetchedAt)
-    .filter(Boolean)
-    .sort()
-    .pop() || null;
-  return { lastRefreshAt: newest || lastRefreshAt, totalNew, ttlMs: TTL_MS, sources };
+  const newest = (key) => sources.map(s => s[key]).filter(Boolean).sort().pop() || null;
+  const lastOkAt = newest('lastOkAt');
+  const lastAttemptAt = newest('fetchedAt');
+  return {
+    lastOkAt, lastAttemptAt,
+    lastRefreshAt: lastOkAt,   // 兼容旧前端字段
+    totalNew, ttlMs: TTL_MS, sources,
+  };
 }
 
 // 跑一个源的探针（独立失败隔离 + 并发去重）
@@ -119,6 +121,19 @@ async function runPool(list, limit) {
   return out;
 }
 
+/** 保留策略：无论全量还是单源刷新，最多每小时清理一次（否则只在"全部刷新"时才跑） */
+function maybePrune() {
+  const now = Date.now();
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS) return;
+  lastPruneAt = now;
+  try {
+    const removed = pruneItems(SOURCES);
+    if (removed > 0) console.log(`[agg] 保留策略清理 ${removed} 条`);
+  } catch (e) {
+    console.warn('[agg] 保留策略清理失败:', e.message);
+  }
+}
+
 router.get('/api/agg', (req, res) => {
   res.json(snapshot());
 });
@@ -146,11 +161,7 @@ router.post('/api/agg/refresh', async (req, res, next) => {
     }
 
     const results = await runPool(targets, CONCURRENCY);
-
-    if (!wanted) {
-      lastRefreshAt = nowIso();
-      try { pruneItems(SOURCES); } catch (e) { console.warn('[agg] 保留策略清理失败:', e.message); }
-    }
+    if (targets.length) maybePrune();
 
     res.json({ results, ...snapshot() });
   } catch (e) {

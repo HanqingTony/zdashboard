@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { ZPA_DIR, ZREPO_DIR } from '../config.js';
+import { STATUS, LAYER } from '../../public/projects-meta.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = resolve(__dirname, 'seed.json');
@@ -22,24 +23,23 @@ const strip = s => String(s || '')
 // 状态单元格里的 emoji → 规范状态
 function normStatus(cell) {
   const c = String(cell || '');
-  if (c.includes('📦')) return '📦归档';
-  if (c.includes('🔴')) return '🔴欠账';
-  if (c.includes('🟢')) return '🟢活跃';
-  if (c.includes('🟡')) return '🟡按需';
-  if (c.includes('🔵')) return '🔵完成待维护';
-  if (c.includes('⚪')) return '⚪暂停';
-  if (c.includes('🧩')) return '🧩上游';
+  if (c.includes('📦')) return STATUS.ARCHIVED;
+  if (c.includes('🔴')) return STATUS.DEBT;
+  if (c.includes('🟢')) return STATUS.ACTIVE;
+  if (c.includes('🟡')) return STATUS.ON_DEMAND;
+  if (c.includes('🔵')) return STATUS.MAINTENANCE;
+  if (c.includes('⚪')) return STATUS.PAUSED;
+  if (c.includes('🧩')) return STATUS.UPSTREAM;
   return strip(c);
 }
 
 function layerOf(status, kind) {
-  if (kind === 'idea') return 'L3 想法';
-  if (status.includes('归档')) return 'L4 归档';
-  if (status.includes('欠账')) return 'L1 活跃';
-  if (status.includes('活跃')) return 'L1 活跃';
-  if (status.includes('上游')) return 'L2 按需';
-  if (status.includes('按需') || status.includes('暂停') || status.includes('完成待维护')) return 'L2 按需';
-  return 'L2 按需';
+  if (kind === 'idea') return LAYER.L3;
+  if (status.includes('归档')) return LAYER.L4;
+  if (status.includes('欠账')) return LAYER.L1;
+  if (status.includes('活跃')) return LAYER.L1;
+  if (status.includes('上游')) return LAYER.L2;
+  return LAYER.L2;
 }
 
 // 明确在做（L0）的项目名（人工口径，与 PORTFOLIO.md 一致）
@@ -104,7 +104,7 @@ function parseProjects(md, file) {
     } else if (section.startsWith('六、归档')) {
       need(row, 3, file);
       projects.push({
-        name: strip(c[0]), kind: 'repo', board: '归档', status: '📦归档',
+        name: strip(c[0]), kind: 'repo', board: '归档', status: STATUS.ARCHIVED,
         note: `${strip(c[2])}（归档位置：${strip(c[1])}）`, source: 'zpa/PROJECTS.md §六',
       });
     }
@@ -162,7 +162,7 @@ function parseIdeas(md, file) {
     const src = strip(idea).startsWith('idea/') ? `znote/${strip(idea)}` : `znote/idea/${strip(idea)}`;
     ideas.push({
       name: cleanIdeaName(idea),
-      kind: 'idea', board: '想法', status: '💭想法',
+      kind: 'idea', board: '想法', status: STATUS.IDEA,
       feasibility: num(f), completeness: num(cc), importance: num(i), score: num(total), grade,
       note: strip(note), source: src.replace(/[（(].*$/, ''),
     });
@@ -207,9 +207,9 @@ function guessRepoPaths(projects, zrepoDir) {
 
 function assignLayers(projects) {
   for (const p of projects) {
-    p.layer = p.kind === 'idea' ? 'L3 想法'
-      : (p.board === '归档' ? 'L4 归档' : (L0.has(p.name) ? 'L0 在做' : layerOf(p.status || '', p.kind)));
-    if (p.layer === 'L0 在做') p.pinned = 1;   // 在办置顶（原实现因顺序错误从未生效）
+    p.layer = p.kind === 'idea' ? LAYER.L3
+      : (p.board === '归档' ? LAYER.L4 : (L0.has(p.name) ? LAYER.L0 : layerOf(p.status || '', p.kind)));
+    if (p.layer === LAYER.L0) p.pinned = 1;   // 在办置顶（原实现因顺序错误从未生效）
   }
 }
 

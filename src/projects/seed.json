@@ -277,7 +277,6 @@
   "note": "大文件资源库（占位立项，Rust + deploy 骨架）",
   "source": "zpa/PROJECTS.md §四",
   "risk": "改动可能丢失（建议：提交或丢弃）",
-  "repo_path": "/home/tony/zrepo/aBigfileTether",
   "layer": "L2 按需"
  },
  {
@@ -288,7 +287,6 @@
   "note": "zext 归档镜像（tether 分支跟踪）",
   "source": "zpa/PROJECTS.md §四",
   "risk": "无异地备份（建议：建仓双推）",
-  "repo_path": "/home/tony/zrepo/tether-zext",
   "layer": "L2 按需"
  },
  {

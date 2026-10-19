@@ -33,6 +33,7 @@ async function git(dir, args) {
   try {
     const { stdout } = await execFileP('git', ['-C', dir, ...args], {
       encoding: 'utf8', timeout: 8000, maxBuffer: 2 * 1024 * 1024, windowsHide: true,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },   // 只读 home 下也能跑 git status
     });
     return stdout.trim();
   } catch {

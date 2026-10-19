@@ -107,7 +107,7 @@ const stmts = {
   pruneRanked: db.prepare(`
     DELETE FROM agg_item
      WHERE source_id = @id AND item_id NOT IN (
-       SELECT item_id FROM agg_item WHERE source_id = @id ORDER BY first_seen DESC LIMIT @keep
+       SELECT item_id FROM agg_item WHERE source_id = @id ORDER BY last_seen DESC, first_seen DESC LIMIT @keep
      )
   `),
   pruneAged: db.prepare('DELETE FROM agg_item WHERE source_id = @id AND last_seen < @cutoff'),

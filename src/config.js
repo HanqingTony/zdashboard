@@ -20,6 +20,10 @@ export const DB_PATH = process.env.DB_PATH || resolve(APP_ROOT, 'zdb.db');
 // 可选写保护：设置后，除 /api/health 外的 /api/* 需要 X-ZToken 或 Bearer
 export const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
 
+// 可选 Host 白名单（逗号分隔，不含端口）；留空 = 不校验。用于防 DNS rebinding。
+export const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
 // WAL checkpoint 策略：always（每次写）/ throttle（写后 500ms 合并）/ off
 export const CHECKPOINT_MODE = (process.env.CHECKPOINT || 'throttle').toLowerCase();
 

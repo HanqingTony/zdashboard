@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.2.0** · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.2.1** · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -36,9 +36,13 @@
 其它行为：
 
 - 缓存 30 分钟；进入页面先渲染缓存，再对过期/未探测的源**逐源增量刷新**（并发 3，单卡回填，不整页重绘）
-- 失败按 `fail_count` 指数退避（60s → 30min 封顶），不会每次开页面都重打坏源；成功时间与失败时间分开记录（`last_ok_at`）
+- 页面持续打开时每 5 分钟更新未读数；在聚合页会顺便刷新过期源
+- 关闭标签页 / 手机锁屏也会通过 `pagehide` / `visibilitychange` + `keepalive` 打已读水位（不再永远未读）
+- 失败按 `fail_count` 指数退避（60s → 30min 封顶），不会每次开页面都重打坏源；成功时间与失败时间分开记录（`last_ok_at` / `fetched_at`）
 - 全量刷新有并发上限 4；`?force=1` 才强制刷新未过期源
-- 保留策略：热榜类每源保留最近 200 条，其余源删除 90 天未再见的条目
+- 保留策略：热榜类每源保留最近 200 条（按 `last_seen`，长期在榜不会被误删），其余源删除 90 天未再见的条目；**任何刷新后最多每小时清理一次**（不再只依赖「全部刷新」）
+- 每日榜（Google Trends / Wikipedia / Mastodon / Bluesky）与微博/抖音热搜的 `item_id` 带日期，同一话题隔天再上榜会重新提醒
+- 版本探针的本地 `git describe` 已异步化，不会阻塞事件循环
 - 加源：`src/agg/sources.js` 加一条 `{ id, group, label, note, homepage, probe }` 即可
 - 需要 key 的源用 `requires: { env: [...], hint }` 声明；缺变量时状态为 `unconfigured`
 - 网络约定：国内平台与 hf-mirror/civarchive 走直连；出境源声明 `proxyMode`（`on` 必走 / `auto` 先直连再代理，地址 `AGG_PROXY`，默认 `http://127.0.0.1:12809`）
@@ -56,13 +60,16 @@ Tools 里的 **📋 项目台账**：zpa 清单落进 `zdb.db`，在面板里看
 - 「同步 git」改为**异步 + 并发 4**，每仓库只用 3 次 git 调用（原来 7 次同步调用会阻塞事件循环）
 - 想法带 F/C/I 评分与 A/B/C/D 档 + 判决按钮（活/搁/死）；Tools 角标 = 待判想法数
 - 写接口有枚举校验（status/layer/verdict、F/C/I 1–5），防止状态空间漂移
+- 枚举与展示映射集中在前端/后端共用的 `public/projects-meta.js`；侧栏项目列表来自真实台账（不再是静态占位）
 
 ### 英语学习（Vocab）
 
 粘贴英文文章 → 分词入库 → 按状态着色 → 点击切换状态。
 
 - **前后端共用 `public/tokenize.js`**：前端能点的词一定在后端词库里（数字 token 不当作单词）
-- 词状态：`unknown`（红）/ `familiar`（黄）/ `mastered`（白）；点击循环 红/白 → 黄 → 白
+- URL / 邮箱 / 行内代码 / 围栏代码块不会进入词库（仍原样显示，但不可点、不计数），避免污染 Vocab
+- 大文章按 12000 token 分段渲染，先显示前一段，其余点「继续显示」——不会一次插入十万级 DOM 节点
+- 词状态：`unknown`（红 + 波浪下划线）/ `familiar`（黄 + 点状下划线）/ `mastered`（白）；点击循环 红/白 → 黄 → 白
 - 删除文章会级联删除词-文章关联，并清理**不再属于任何文章**的孤立词（确认框文案与实际一致）
 - 统计：`GET /api/vocab/stats`
 
@@ -107,10 +114,20 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | `ZPA_DIR` | `/home/tony/zrepo/zpa` | 项目清单所在仓库 |
 | `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
 | `AGG_PROXY` | `http://127.0.0.1:12809` | 出境源代理 |
+| `ALLOWED_HOSTS` | 空 | 可选 Host 白名单（逗号分隔、不含端口）；设置后拒绝其它 Host（防 DNS rebinding） |
+| `BACKUP_DIR` | `<DB 目录>/backup/zdashboard` | `npm run backup` 的输出目录 |
+| `BACKUP_KEEP` | `7` | 备份保留份数 |
 | `YOUTUBE_API_KEY` | — | YouTube Data API v3 |
 | `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | — | Reddit OAuth（缺省退回 RSS，可能被 429） |
 
 `AUTH_TOKEN` 用法：浏览器打开一次 `https://host:18100/?token=xxx`（token 存入 localStorage 并自动从 URL 清除）；curl 用 `-H "X-ZToken: xxx"`。更稳妥的方式仍是 nginx `auth_basic` + `AUTH_TOKEN`，或不要让 18100 出内网。
+
+其它默认安全行为：
+
+- 鉴权在 body 解析之前；未认证请求不会先吃掉 2MB 内存
+- `/api` 固定窗口限流（180 次/分钟/IP），超出返回 429
+- 响应头带 CSP（只允许本站脚本/样式）、`X-Frame-Options: DENY`、`nosniff`、`no-referrer`
+- 生产环境 500 不再回传内部错误文本（可能含 SQL 细节）
 
 ## 数据库约定
 
@@ -126,7 +143,9 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 ### zmain 本机常驻部署（当前生产）
 
 ```bash
-# systemd 单元：/etc/systemd/system/zdashboard.service
+# 单元模板在仓库：deploy/zdashboard.service（已启用最小权限 hardening）
+sudo cp deploy/zdashboard.service /etc/systemd/system/zdashboard.service
+sudo systemctl daemon-reload
 sudo systemctl restart zdashboard
 sudo journalctl -u zdashboard -f
 
@@ -137,7 +156,23 @@ curl -k https://192.168.0.102:18100/api/health
 - 监听 `127.0.0.1:28100`（端口规范：18xxx 对外 18100 ↔ 28xxx 上游 28100）
 - `DB_PATH=/home/tony/zdata/zdb.db`（权威库）
 - ExecStart 使用 pnpm 的 node（`/home/tony/.local/share/pnpm/bin/node`，与已编译的 better-sqlite3 ABI 一致）
-- 旧单元里的 `AUDIO_DIR=` 已无用，可删
+- 单元启用 `ProtectSystem=strict` / `ProtectHome=read-only` + `ReadWritePaths=/home/tony/zdata`（只允许写数据库/备份目录）
+- 已删除 `AUDIO_DIR=`；`CHECKPOINT=throttle` 显式声明
+
+### 备份（systemd timer）
+
+```bash
+# 手动备份一次
+npm run backup
+
+# 每天 04:00 自动备份（保留 7 份）
+sudo cp deploy/zdashboard-backup.service deploy/zdashboard-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now zdashboard-backup.timer
+systemctl list-timers zdashboard-backup.timer
+```
+
+备份使用 SQLite 在线备份 API（`db.backup()`），无需停服；默认写到 `/home/tony/zdata/backup/zdashboard`。
 
 ### .run 便携部署
 
@@ -164,7 +199,8 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据）
+npm test           # node:test（内存库，不碰生产数据；24 个用例）
+npm run backup     # SQLite 在线备份
 npm run seed       # 仅手动重新生成 src/projects/seed.json
 ```
 
@@ -177,7 +213,9 @@ zdashboard/
 │   ├── app.js              # Express 装配（测试可直接 import）
 │   ├── config.js           # 环境变量（无 config.json）
 │   ├── db.js               # SQLite + checkpoint 策略
-│   ├── lib/time.js         # ISO 时间工具
+│   ├── lib/
+│   │   ├── time.js         # ISO 时间工具
+│   │   └── rate-limit.js   # /api 限流
 │   ├── agg/
 │   │   ├── sources.js      # 各源探针
 │   │   └── store.js        # 落库 / 未读水位 / 退避 / 保留策略
@@ -189,9 +227,12 @@ zdashboard/
 │   ├── index.html          # 单页骨架（资产带 ?v=<版本>）
 │   ├── app.js              # ES module 前端
 │   ├── tokenize.js         # 前后端共用分词器
+│   ├── projects-meta.js    # 前后端共用台账枚举
 │   ├── nav.json            # 黄页数据源
 │   └── style.css
-├── test/                   # node:test（tokenize / agg / projects / api / auth）
-├── deploy/                 # Dockerfile / compose / build_run.sh / c2r.sh
+├── scripts/backup.js       # SQLite 在线备份
+├── test/                   # node:test（tokenize / agg / projects / api / auth / rate-limit）
+├── deploy/                 # Dockerfile / compose / systemd 单元 / build_run.sh / c2r.sh
+├── .github/workflows/      # CI：npm ci + npm test
 └── docs/                   # 路线图与逐版本记录
 ```

@@ -1,0 +1,21 @@
+[Unit]
+Description=zDashboard SQLite backup
+After=zdashboard.service
+
+[Service]
+Type=oneshot
+User=tony
+Group=tony
+Environment=DB_PATH=/home/tony/zdata/zdb.db
+Environment=BACKUP_DIR=/home/tony/zdata/backup/zdashboard
+Environment=BACKUP_KEEP=7
+ExecStart=/home/tony/.local/share/pnpm/bin/node /home/tony/zrepo/zdashboard/scripts/backup.js
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/tony/zdata
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes

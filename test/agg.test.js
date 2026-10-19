@@ -56,6 +56,15 @@ test('从未成功过、刚失败的源也在退避窗口内（不会被每次�
   assert.equal(store.staleness(store.stateOf('never-ok'), 30 * 60 * 1000).stale, false);
 });
 
+test('热榜保留优先保住最近仍在榜的条目（按 last_seen，而不是 first_seen）', () => {
+  const ranked = { id: 'rk', label: 'RK', ranked: true };
+  store.recordProbe(ranked, Array.from({ length: 205 }, (_, i) => item(`rk${i}`)));
+  // k0 是长期在榜条目：first_seen 很老，但最近一次仍见到
+  db.prepare("UPDATE agg_item SET first_seen = '2020-01-01T00:00:00.000Z', last_seen = '2030-01-01T00:00:00.000Z' WHERE source_id = 'rk' AND item_id = 'rk0'").run();
+  store.pruneItems([{ id: 'rk', ranked: true }], { rankedKeep: 200 });
+  assert.ok(db.prepare("SELECT 1 FROM agg_item WHERE source_id = 'rk' AND item_id = 'rk0'").get(), '长期在榜条目不应被删');
+});
+
 test('热榜类保留最近 N 条；普通源清掉过期条目', () => {
   const ranked = { id: 'r1', label: 'R1', ranked: true };
   const rows = Array.from({ length: 205 }, (_, i) => item(`r${i}`));

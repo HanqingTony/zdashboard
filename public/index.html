@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
     <title>zDashboard</title>
     <link rel="stylesheet" href="style.css?v=__ASSET_VER__">
@@ -15,9 +15,9 @@
     <div class="dash-bar sticky" id="barP">
         <div class="logo"><span class="z">Z</span>Dash</div>
         <div class="spacer"></div>
-        <div class="si"><span class="d" style="background:var(--blu)"></span>zdb <span class="v">7</span></div>
-        <div class="si"><span class="d" style="background:var(--grn)"></span>MinIO <span class="v">2.4G</span></div>
-        <div class="si"><span class="d" style="background:var(--org)"></span>HS <span class="v">3</span></div>
+        <div class="si"><span class="d" style="background:var(--blu)"></span>台账 <span class="v" id="statDbP">—</span></div>
+        <div class="si"><span class="d" style="background:var(--grn)"></span>未读 <span class="v" id="statUnreadP">—</span></div>
+        <div class="si"><span class="d" style="background:var(--org)"></span><span class="v" id="statVerP">—</span></div>
         <div class="spacer"></div>
         <span class="clk" id="clockP"></span>
         <span class="online-dot"></span>
@@ -49,9 +49,9 @@
         <div class="dash-bar" id="barL">
             <div class="logo"><span class="z">Z</span>Dash</div>
             <div class="spacer"></div>
-            <div class="si"><span class="d" style="background:var(--blu)"></span>zdb <span class="v">7</span></div>
-            <div class="si"><span class="d" style="background:var(--grn)"></span>MinIO <span class="v">2.4G</span></div>
-            <div class="si"><span class="d" style="background:var(--org)"></span>HS <span class="v">3</span></div>
+            <div class="si"><span class="d" style="background:var(--blu)"></span>台账 <span class="v" id="statDbL">—</span></div>
+            <div class="si"><span class="d" style="background:var(--grn)"></span>未读 <span class="v" id="statUnreadL">—</span></div>
+            <div class="si"><span class="d" style="background:var(--org)"></span><span class="v" id="statVerL">—</span></div>
             <div class="spacer"></div>
             <span class="clk" id="clockL"></span>
             <span class="online-dot"></span>

@@ -1,5 +1,9 @@
 // public/app.js — 单文件 SPA（type="module"；共享 public/tokenize.js）
 import { tokenize } from './tokenize.js';
+import {
+    STATUSES as PJ_STATUS, LAYERS as PJ_LAYERS, KIND_LABELS as PJ_KINDS,
+    GRADE_LABELS, statusDot,
+} from './projects-meta.js';
 
 // ========== 可选写保护 token ==========
 // 设置 AUTH_TOKEN 后：打开一次 https://host/?token=xxx 即可（存 localStorage 并清掉 URL 参数）
@@ -74,29 +78,39 @@ const spacer = document.getElementById('portSpacer');
 
 // ========== 侧栏（Projects / Tools）==========
 // 竖屏和横屏用同一份配置生成，避免两份硬编码漂移
-const PROJECTS = [
-    { i: 'D', n: 'zDashboard', s: 'a' },
-    { i: 'A', n: 'agent_properties', s: 'm' },
-    { i: 'W', n: 'WASM Classics', s: 'p' },
-    { i: 'V', n: 'Vocab Builder', s: 'p' },
-];
-
 const APPS = [
     { app: 'nav', label: '🧭 服务导航', badge: '18100' },
     { app: 'agg', label: '📡 信息聚合', badgeId: 'badgeAgg' },
     { app: 'projects', label: '📋 项目台账', badgeId: 'badgePj' },
     { app: 'vocab', label: '📚 Vocab Builder', badgeId: 'badgeVocab' },
     { app: null, label: '✖ Empty' },
-    { label: '📝 Diary', badge: '3' },
+    { label: '📝 Diary' },
     { label: '💰 Finance' },
-    { label: '⏰ Reminders', badge: '2' },
+    { label: '⏰ Reminders' },
     { label: '📊 Data Browser' },
 ];
 
+// 侧栏项目列表：来自 /api/projects（不再写死假数据）
+function renderProjectSidebar(items) {
+    const list = (items || []).slice(0, 5);
+    const html = list.length
+        ? list.map(p => {
+            const initial = String(p.name || '?').trim().slice(0, 1).toUpperCase() || '?';
+            return `<div class="pr" onclick="switchApp('projects')" title="${escHtml(p.name)}">
+                <div class="pr-i">${escHtml(initial)}</div>
+                <span class="pr-n">${escHtml(p.name)}</span>
+                <span class="pr-s ${statusDot(p.status)}"></span>
+            </div>`;
+        }).join('')
+        : '<div class="pr"><span class="pr-n" style="color:var(--tx3)">暂无项目</span></div>';
+    for (const id of ['projectsP', 'projectsL']) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+    }
+}
+
 function renderPanels() {
-    const projectsHtml = PROJECTS.map(p =>
-        `<div class="pr"><div class="pr-i">${escHtml(p.i)}</div><span class="pr-n">${escHtml(p.n)}</span><span class="pr-s ${escHtml(p.s)}"></span></div>`
-    ).join('');
+    renderProjectSidebar([]);
 
     const toolsHtml = (suffix) => APPS.map(t => {
         const badge = t.badgeId
@@ -108,10 +122,6 @@ function renderPanels() {
         return `<div class="tl" data-app="${dataApp}" onclick="${onclick}">${escHtml(t.label)} ${badge}</div>`;
     }).join('');
 
-    for (const [id, suffix] of [['projectsP', ''], ['projectsL', 'L']]) {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = projectsHtml;
-    }
     for (const [id, suffix] of [['toolsP', ''], ['toolsL', 'L']]) {
         const el = document.getElementById(id);
         if (el) el.innerHTML = toolsHtml(suffix);
@@ -263,6 +273,7 @@ async function deleteArticle(id) {
 }
 
 function renderEmptyReader() {
+    vocabState.reader = null;
     const reader = document.getElementById('vocabReader');
     if (!reader) return;
     reader.innerHTML = `
@@ -274,6 +285,9 @@ function renderEmptyReader() {
 }
 
 // 渲染文章（分词与后端共用 public/tokenize.js，保证可点的词都在库里）
+// 大文章分段渲染：每段最多 READ_CHUNK_TOKENS 个 token，避免一次插入十万级 DOM 节点
+const READ_CHUNK_TOKENS = 12000;
+
 function renderArticleContent(article) {
     const reader = document.getElementById('vocabReader');
     if (!reader) return;
@@ -281,17 +295,44 @@ function renderArticleContent(article) {
     const wordMap = {};
     for (const w of article.words || []) wordMap[w.word] = w.status;
 
-    let html = `<div class="vocab-article-title">${escHtml(article.title)}</div><div class="vocab-text">`;
-    for (const t of tokenize(article.content)) {
+    vocabState.reader = { tokens: tokenize(article.content), wordMap, index: 0 };
+    reader.innerHTML = `
+        <div class="vocab-article-title">${escHtml(article.title)}</div>
+        <div class="vocab-text" id="vocabText"></div>
+        <div class="vocab-more" id="vocabMore"></div>
+    `;
+    renderNextChunk();
+}
+
+function renderNextChunk() {
+    const state = vocabState.reader;
+    if (!state) return;
+    const textEl = document.getElementById('vocabText');
+    if (!textEl) return;
+
+    const end = Math.min(state.index + READ_CHUNK_TOKENS, state.tokens.length);
+    let html = '';
+    for (let i = state.index; i < end; i++) {
+        const t = state.tokens[i];
         if (t.type === 'sep') {
             html += `<span class="vw-sep">${escHtml(t.text)}</span>`;
         } else {
-            const status = wordMap[t.key] || 'unknown';
+            const raw = state.wordMap[t.key];
+            const status = raw === 'mastered' ? 'mastered' : raw === 'familiar' ? 'familiar' : 'unknown';
             html += `<span class="vw ${status}" data-word="${escHtml(t.key)}" onclick="onWordClick(this, event)">${escHtml(t.text)}</span>`;
         }
     }
-    html += '</div>';
-    reader.innerHTML = html;
+    state.index = end;
+    textEl.insertAdjacentHTML('beforeend', html);
+
+    const more = document.getElementById('vocabMore');
+    if (!more) return;
+    if (state.index < state.tokens.length) {
+        const left = state.tokens.slice(state.index).filter(t => t.type === 'word').length;
+        more.innerHTML = `<button class="vb" onclick="renderNextChunk()">继续显示剩余 ${left} 词</button>`;
+    } else {
+        more.innerHTML = '';
+    }
 }
 
 function showInputArea() {
@@ -410,12 +451,20 @@ async function renderNavApp(container) {
 // ========== 信息聚合 ==========
 const aggState = { data: null, autoRefreshed: false, busy: false, sourceBusy: new Set() };
 
+function setStat(key, value) {
+    for (const suffix of ['P', 'L']) {
+        const el = document.getElementById(`stat${key}${suffix}`);
+        if (el) el.textContent = value == null || value === '' ? '—' : String(value);
+    }
+}
+
 function updateAggBadge(n) {
     const txt = n > 0 ? String(n) : '';
     ['badgeAgg', 'badgeAggL'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.textContent = txt;
     });
+    setStat('Unread', n || 0);
 }
 
 function aggTimeAgo(iso) {
@@ -501,7 +550,12 @@ function aggSourceHtml(s) {
 
 function aggHeaderText(data) {
     const totalNew = data.totalNew || 0;
-    return `${totalNew > 0 ? totalNew + ' 条未读' : '暂无未读'} · 上次刷新 ${aggTimeAgo(data.lastRefreshAt)}`;
+    const okMs = data.lastOkAt ? Date.parse(data.lastOkAt) : NaN;
+    const tryMs = data.lastAttemptAt ? Date.parse(data.lastAttemptAt) : NaN;
+    const okText = Number.isFinite(okMs) ? `上次成功 ${aggTimeAgo(data.lastOkAt)}` : '从未成功';
+    const tryText = Number.isFinite(tryMs) && (!Number.isFinite(okMs) || tryMs - okMs > 60000)
+        ? ` · 上次尝试 ${aggTimeAgo(data.lastAttemptAt)}` : '';
+    return `${totalNew > 0 ? totalNew + ' 条未读' : '暂无未读'} · ${okText}${tryText}`;
 }
 
 function drawAgg(container, data) {
@@ -612,12 +666,13 @@ async function refreshAgg(source) {
     }
 }
 
-function ackAggRead() {
+function ackAggRead({ keepalive = false } = {}) {
     if (!aggState.data) return;
     apiFetch('/api/agg/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ all: true }),
+        keepalive,
     }).catch(() => {});
     aggState.data.sources.forEach(s => { s.newCount = 0; });
     updateAggBadge(0);
@@ -625,10 +680,6 @@ function ackAggRead() {
 
 // ========== 项目台账 ==========
 const pjState = { data: null, filter: { kind: '', layer: '', grade: '', q: '' }, busy: false };
-const PJ_STATUS = ['🟢活跃', '🟡按需', '🔵完成待维护', '⚪暂停', '🔴欠账', '🧩上游', '📦归档', '💭想法'];
-const PJ_LAYERS = ['L0 在做', 'L1 活跃', 'L2 按需', 'L3 想法', 'L4 归档'];
-const PJ_KINDS = [['', '全部'], ['repo', '工程'], ['infra', '基建'], ['upstream', '上游'], ['data', '数据'], ['idea', '想法']];
-
 async function pjApi(path, method = 'GET', body) {
     const res = await apiFetch(`/api/projects${path}`, {
         method,
@@ -723,13 +774,14 @@ async function renderProjectsApp(container) {
         <div class="pj-filters">
             <select class="vb" onchange="pjSet('kind', this.value)">${PJ_KINDS.map(([v, t]) => `<option value="${escHtml(v)}" ${pjState.filter.kind === v ? 'selected' : ''}>${escHtml(t)}</option>`).join('')}</select>
             <select class="vb" onchange="pjSet('layer', this.value)"><option value="">全部层</option>${PJ_LAYERS.map(l => `<option ${pjState.filter.layer === l ? 'selected' : ''}>${escHtml(l)}</option>`).join('')}</select>
-            <select class="vb" onchange="pjSet('grade', this.value)"><option value="">全部档</option>${['A', 'B', 'C', 'D'].map(g => `<option ${pjState.filter.grade === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
+            <select class="vb" onchange="pjSet('grade', this.value)"><option value="">全部档</option>${GRADE_LABELS.map(g => `<option ${pjState.filter.grade === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
             <input class="pj-q" placeholder="搜索名称/备注/下一步…" value="${escHtml(pjState.filter.q)}" oninput="pjSet('q', this.value)">
         </div>
         <div id="pjBody"></div>
     </div>`;
     drawProjects();
-    updatePjBadge(data.stats.ideasNoVerdict);
+    updatePjBadge(data.stats.ideasNoVerdict, data.stats.total);
+    renderProjectSidebar(data.items);
 }
 
 function pjSet(k, v) {
@@ -737,18 +789,20 @@ function pjSet(k, v) {
     drawProjects();
 }
 
-function updatePjBadge(n) {
+function updatePjBadge(n, total) {
     const txt = n > 0 ? String(n) : '';
     ['badgePj', 'badgePjL'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.textContent = txt;
     });
+    if (total != null) setStat('Db', total);
 }
 
 async function pjReload() {
     pjState.data = await pjApi('');
     drawProjects();
-    updatePjBadge(pjState.data.stats.ideasNoVerdict);
+    updatePjBadge(pjState.data.stats.ideasNoVerdict, pjState.data.stats.total);
+    renderProjectSidebar(pjState.data.items);
 }
 
 async function pjVerdict(id, v) {
@@ -758,7 +812,10 @@ async function pjVerdict(id, v) {
         if (it) it.verdict = v;
         const row = document.getElementById('pj-row-' + id);
         if (row && it) row.outerHTML = pjRowHtml(it);
-        updatePjBadge(pjState.data.items.filter(x => x.kind === 'idea' && !x.verdict).length);
+        updatePjBadge(
+            pjState.data.items.filter(x => x.kind === 'idea' && !x.verdict).length,
+            pjState.data.stats.total,
+        );
     } catch (e) { alert('更新失败: ' + e.message); }
 }
 
@@ -936,8 +993,43 @@ switchApp('nav');
 layout();
 
 // Tools 角标：聚合未读数 + 项目待判想法数（失败静默）
+fetch('/api/health')
+    .then(r => r.json())
+    .then(h => setStat('Ver', 'v' + h.version))
+    .catch(() => {});
 aggFetch(false).then(d => updateAggBadge(d.totalNew || 0)).catch(() => {});
-pjApi('').then(d => updatePjBadge(d.stats.ideasNoVerdict)).catch(() => {});
+pjApi('').then(d => {
+    updatePjBadge(d.stats.ideasNoVerdict, d.stats.total);
+    renderProjectSidebar(d.items);
+}).catch(() => {});
+
+// 页面长时间开着时也要更新：每 5 分钟拉一次聚合未读；在聚合页则顺便刷新过期源
+setInterval(async () => {
+    if (document.visibilityState === 'hidden') return;
+    try {
+        const d = await aggFetch(false);
+        updateAggBadge(d.totalNew || 0);
+        if (currentApp === 'agg') {
+            const queue = d.sources
+                .filter(s => s.status !== 'unconfigured' && s.stale)
+                .map(s => s.id);
+            await Promise.all(Array.from({ length: Math.min(2, queue.length) }, async () => {
+                for (;;) {
+                    const id = queue.shift();
+                    if (!id) return;
+                    await refreshAgg(id);
+                }
+            }));
+        }
+    } catch { /* 离线时保持旧数据 */ }
+}, 5 * 60 * 1000);
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && currentApp === 'agg') ackAggRead({ keepalive: true });
+});
+window.addEventListener('pagehide', () => {
+    if (currentApp === 'agg') ackAggRead({ keepalive: true });
+});
 
 window.addEventListener('resize', () => {
     panelCollapsed = false;
@@ -955,6 +1047,7 @@ Object.assign(window, {
     deleteArticle,
     analyzeArticle,
     onWordClick,
+    renderNextChunk,
     refreshAgg,
     pjSet,
     pjVerdict,

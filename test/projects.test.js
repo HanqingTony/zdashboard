@@ -9,6 +9,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 const { buildSeed } = await import('../src/projects/fromMarkdown.js');
+const { STATUSES, LAYERS, VERDICTS } = await import('../public/projects-meta.js');
 const store = await import('../src/projects/store.js');
 
 const PROJECTS = `# PROJECTS
@@ -68,6 +69,10 @@ test('buildSeed 解析项目/想法/风险，并修正 L0 置顶', () => {
   try {
     const rows = buildSeed({ zpaDir: dir, zrepoDir: dir });
     assert.equal(rows.length, 6);   // 4 个项目 + 2 个想法
+    for (const r of rows) {
+      assert.ok(STATUSES.includes(r.status), `未知状态: ${r.status}`);
+      assert.ok(LAYERS.includes(r.layer), `未知层: ${r.layer}`);
+    }
 
     const dash = rows.find(r => r.name === 'zdashboard');
     assert.equal(dash.status, '🟢活跃');

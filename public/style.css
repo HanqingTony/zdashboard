@@ -27,6 +27,9 @@
             --vocab-unknown:rgba(255,107,107,.15);       /* 陌生：浅红色半透明背景 */
             --vocab-unknown-border:rgba(255,107,107,.3);
         }
+        /* 键盘焦点可见（可访问性） */
+        :focus-visible{outline:2px solid var(--ac2);outline-offset:2px}
+
         *{margin:0;padding:0;box-sizing:border-box}
         html,body{height:100%;overflow:hidden}
         body{
@@ -135,6 +138,8 @@
         .pr-s.a{background:var(--grn)}   /* 进行中：绿色 */
         .pr-s.m{background:var(--blu)}   /* 维护中：蓝色 */
         .pr-s.p{background:var(--org)}   /* 规划中：橙色 */
+        .pr-s.r{background:var(--red)}   /* 欠账：红色 */
+        .pr-s.x{background:var(--tx3)}   /* 已归档：灰色 */
 
         /* 工具列表行 */
         .tl{
@@ -342,17 +347,25 @@
         .vw.mastered{
             background:transparent;
             border-color:transparent;
+            text-decoration:none;
         }
-        /* 不熟练（familiar）：黄色圆角背景 */
+        /* 不熟练（familiar）：黄色背景 + 点状下划线（不依赖颜色也能分辨） */
         .vw.familiar{
             background:var(--vocab-familiar);
             border-color:var(--vocab-familiar-border);
+            text-decoration:underline dotted var(--org);
+            text-underline-offset:3px;
         }
-        /* 陌生（unknown）：浅红色圆角背景 */
+        /* 陌生（unknown）：浅红色背景 + 波浪下划线 */
         .vw.unknown{
             background:var(--vocab-unknown);
             border-color:var(--vocab-unknown-border);
+            text-decoration:underline wavy rgba(255,107,107,.7);
+            text-underline-offset:3px;
         }
+
+        /* 大文章分段加载按钮 */
+        .vocab-more{padding:12px 0 20px;text-align:center}
         /* 非单词字符（标点、空格、换行等） */
 
         /* ========== 服务导航（黄页）模块 ========== */
