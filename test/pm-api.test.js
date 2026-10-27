@@ -99,3 +99,20 @@ test('扫描模式：只扫端口 / 只扫仓库', async () => {
   const bad = await json('/api/pm/scan?what=xxx', { method: 'POST', headers: H });
   assert.equal(bad.status, 400);
 });
+
+test('新建仓库默认自动分配并注册一组端口', async () => {
+  const created = await (await json('/api/pm', {
+    method: 'POST', headers: H,
+    body: JSON.stringify({
+      name: 'autoport', slug: 'autoport', createRepo: true, managePorts: true,
+      dualRemote: true, nginxEnabled: false, webEnabled: false,
+    }),
+  })).json();
+  assert.equal(created.ok, true);
+  assert.ok(created.project.repo_path);
+  assert.ok(created.project.upstream_port >= 12710);
+  assert.ok(created.project.external_port >= 18130);
+  assert.equal(created.project.nginx_enabled, false);
+  assert.equal(created.project.web_enabled, false);
+  assert.equal((await json(`/api/pm/${created.project.id}`, { method: 'DELETE', headers: H })).status, 200);
+});

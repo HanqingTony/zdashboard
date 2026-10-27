@@ -9,7 +9,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（29 用例，内存库）
+npm test           # node --test（30 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -96,6 +96,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 端口：上游自动分配 `12710–12799`；成品软件可显式用已有端口（如 8188）；对外自动 `18130–18189`
   - `src/pm/ports.js` 扫描 `ss`/活动 nginx conf/nav.json/DB；显式对外端口不得与其它 nginx conf 冲突
 - 仓库：`src/pm/repo.js`，新建到 `/home/tony/zrepo/<slug>`，`git init -b main` + 初始提交；
+  左栏「+ 仓库」默认同时自动分配 127xx↳181xx 并注册到端口表（可取消）
   origin fetch GitHub，pushurl GitHub+Gitee；扫描已有仓库用 `repo_created=0`
 - 扫描：`POST /api/pm/scan?what=repos|ports|all`（或 `npm run pm:scan`）：左栏只扫仓库、右栏只扫已知服务/成品软件
 - 新建：顶部「+ 新建项目」默认建仓+注册端口；左/右栏也可单独新建

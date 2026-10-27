@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.4.2** · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.4.3** · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -58,7 +58,7 @@ Tools 里的 **🛠 项目管理器**：左栏「仓库管理」、右栏「端�
 - **新建项目**：顶部「+ 新建项目」默认同时建仓 + 注册端口；也可在左右栏分别新建
 - **解耦**：删除仓库不删端口，移除端口不删仓库；两边都没了才删整条（ComfyUI = 两者都有；MinIO = 只有端口）
 - **端口**：自动上游 `12710–12799`、对外 `18130–18189`；成品软件可直接填已有端口（如 8188）；自动跳过 `ss` 监听、活动 nginx conf、`nav.json`、数据库已用端口
-- **建仓/附着仓库**：新建仓库在 `/home/tony/zrepo/<slug>`；「扫描本机」会把已有仓库以 `repo_created=0` 导入
+- **建仓/附着仓库**：新建仓库在 `/home/tony/zrepo/<slug>`，默认同时自动分配一组 `127xx ↳ 181xx` 并注册到右栏（可取消）；「扫描本机」会把已有仓库以 `repo_created=0` 导入
 - **双远端**：`origin` fetch GitHub，pushurl 配 GitHub + Gitee；远端仓库需先在平台创建
 - **扫描**：左栏「扫描仓库」只导仓库；右栏「扫描运行服务」只导已知服务/成品软件；也可 `npm run pm:scan` 全扫；已有手工映射的服务只登记、不重复 listen
 - **同步 git**：刷新 last commit / 脏文件 / 未推送 / 双远端
@@ -244,7 +244,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；29 个用例）
+npm test           # node:test（内存库，不碰生产数据；30 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除

@@ -163,6 +163,9 @@ function repoFormHtml() {
         </div>
         <div class="pm-checks">
             <label><input type="checkbox" id="pmRepoDual" checked> 配置双远端（GitHub + Gitee）</label>
+            <label><input type="checkbox" id="pmRepoPorts" checked> 自动注册端口（127xx ↳ 181xx）</label>
+            <label><input type="checkbox" id="pmRepoNginx" checked> 启用 nginx</label>
+            <label><input type="checkbox" id="pmRepoWeb" checked> 挂到主页</label>
         </div>
         <div class="pj-actions">
             <button class="vb" onclick="pmCreateRepo()">创建仓库</button>
@@ -389,17 +392,24 @@ async function pmCreateRepo() {
     const name = document.getElementById('pmRepoName')?.value.trim();
     const slug = document.getElementById('pmRepoSlug')?.value.trim();
     const dualRemote = document.getElementById('pmRepoDual')?.checked;
+    const managePorts = document.getElementById('pmRepoPorts')?.checked;
+    const nginxEnabled = document.getElementById('pmRepoNginx')?.checked;
+    const webEnabled = document.getElementById('pmRepoWeb')?.checked;
     if (!name) { alert('请填写仓库名'); return; }
     pmState.busy = true;
     try {
         const res = await pmWrite('', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, slug: slug || undefined, createRepo: true, managePorts: false, dualRemote }),
+            body: JSON.stringify({
+                name, slug: slug || undefined, createRepo: true, managePorts,
+                dualRemote, nginxEnabled, webEnabled,
+            }),
         });
         const data = await res.json();
         pmState.showRepoForm = false;
-        pmState.notice = `已创建仓库 ${data.project.slug}：${data.project.repo_path}`;
+        pmState.notice = `已创建仓库 ${data.project.slug}：${data.project.repo_path}` +
+            (data.project.upstream_port ? `；端口 127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : '（未注册端口）');
         await pmReload();
         pmReloadSoon();
     } catch (e) {
