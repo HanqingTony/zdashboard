@@ -8,6 +8,7 @@ import { join } from 'path';
 const TMP = mkdtempSync(join(tmpdir(), 'zdb-pm-api-'));
 process.env.DB_PATH = ':memory:';
 process.env.CHECKPOINT = 'off';
+process.env.PM_CREATE_REMOTES = '0';
 process.env.PM_STATE_DIR = join(TMP, 'state');
 process.env.PM_REPO_ROOT = join(TMP, 'repos');
 process.env.PM_NGINX_DIR = join(TMP, 'nginx');

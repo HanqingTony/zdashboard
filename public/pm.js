@@ -56,7 +56,7 @@ function repoText(p) {
     else bits.push('<span class="pm-dim">未同步 git</span>');
     if (r.dirty) bits.push(`脏${r.dirty}`);
     if (r.ahead) bits.push(`未推${r.ahead}`);
-    if (r.dualPush) bits.push('双远端');
+    if (r.dualPush) bits.push('双推地址');
     return bits.join(' · ');
 }
 
@@ -142,7 +142,7 @@ function projectFormHtml() {
             <label>对外端口<input id="pmProjectExt" type="number" placeholder="留空自动 181xx"></label>
         </div>
         <div class="pm-checks">
-            <label><input type="checkbox" id="pmProjectRepo" checked> 建本地仓库 + 双远端</label>
+            <label><input type="checkbox" id="pmProjectRepo" checked> 建本地仓库 + 创建双远端仓库</label>
             <label><input type="checkbox" id="pmProjectPorts" checked> 注册端口映射</label>
             <label><input type="checkbox" id="pmProjectNginx" checked> 启用 nginx</label>
             <label><input type="checkbox" id="pmProjectWeb" checked> 挂到主页</label>
@@ -161,7 +161,7 @@ function repoFormHtml() {
             <label>slug<input id="pmRepoSlug" placeholder="自动" oninput="this.dataset.auto='0'"></label>
         </div>
         <div class="pm-checks">
-            <label><input type="checkbox" id="pmRepoDual" checked> 配置双远端（GitHub + Gitee）</label>
+            <label><input type="checkbox" id="pmRepoDual" checked> 创建并配置双远端（GitHub + Gitee 仓库）</label>
             <label><input type="checkbox" id="pmRepoPorts" checked> 自动注册端口（127xx ↳ 181xx）</label>
             <label><input type="checkbox" id="pmRepoNginx" checked> 启用 nginx</label>
             <label><input type="checkbox" id="pmRepoWeb" checked> 挂到主页</label>
@@ -278,6 +278,18 @@ function drawPm() {
     </div>`;
 }
 
+function remoteWarning(r) {
+    if (!r) return '';
+    const bad = [];
+    if (!r.github?.ok) bad.push(`GitHub ${r.github?.error || '失败'}`);
+    if (!r.gitee?.ok) bad.push(`Gitee ${r.gitee?.error || '失败'}`);
+    if (r.pushed) {
+        if (!r.pushed.github?.ok) bad.push(`推送 GitHub 失败`);
+        if (!r.pushed.gitee?.ok) bad.push(`推送 Gitee 失败`);
+    }
+    return bad.length ? `；远端：${bad.join('；')}` : '';
+}
+
 function pmSlugSync(name, which) {
     const el = document.getElementById(which === 'repo' ? 'pmRepoSlug' : which === 'port' ? 'pmPortSlug' : 'pmProjectSlug');
     if (!el || el.dataset.auto === '0') return;
@@ -386,7 +398,7 @@ async function pmCreateProject() {
         });
         const data = await res.json();
         pmState.showProjectForm = false;
-        pmState.notice = `已注册 ${data.project.slug}${data.project.external_port ? `：127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : ''}`;
+        pmState.notice = `已注册 ${data.project.slug}${data.project.external_port ? `：127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : ''}${remoteWarning(data.remotes)}`;
         await pmReload();
         pmReloadSoon();
     } catch (e) {
@@ -416,7 +428,8 @@ async function pmCreateRepo() {
         const data = await res.json();
         pmState.showRepoForm = false;
         pmState.notice = `已创建仓库 ${data.project.slug}：${data.project.repo_path}` +
-            (data.project.upstream_port ? `；端口 127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : '（未注册端口）');
+            (data.project.upstream_port ? `；端口 127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : '（未注册端口）') +
+            remoteWarning(data.remotes);
         await pmReload();
         pmReloadSoon();
     } catch (e) {

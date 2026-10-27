@@ -47,6 +47,9 @@ export const PM_GIT_EMAIL = process.env.PM_GIT_EMAIL || 'tony@zmain.local';
 
 // 期望状态/应用状态目录（app 可写；root helper 读取）
 export const PM_STATE_DIR = process.env.PM_STATE_DIR || resolve(dirname(DB_PATH), 'zdashboard');
+// 远端仓库创建凭据（600）：GITEE_TOKEN / GITEE_OWNER / GITHUB_OWNER
+export const PM_GITEE_ENV = process.env.GITEE_ENV || resolve(PM_STATE_DIR, 'gitee.env');
+export const PM_CREATE_REMOTES = process.env.PM_CREATE_REMOTES !== '0';
 export const PM_NGINX_CONF_STAGING = resolve(PM_STATE_DIR, 'pm-nginx.conf');
 export const PM_NGINX_STATUS = resolve(PM_STATE_DIR, 'pm-nginx-status.json');
 export const PM_NGINX_DIR = process.env.PM_NGINX_DIR || '/etc/nginx';

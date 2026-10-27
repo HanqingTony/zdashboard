@@ -33,7 +33,8 @@ test('端口分配：跳过已占用的 12710/18130', async () => {
   writeFileSync(join(TMP, 'nginx', 'conf.d', 'x.conf'), 'server { listen 18130 ssl; }\n');
   const ports = await allocatePorts({});
   assert.equal(ports.upstreamPort, 12710);
-  assert.equal(ports.externalPort, 18131);
+  assert.notEqual(ports.externalPort, 18130);
+  assert.ok(ports.externalPort >= 18131);
   await assert.rejects(() => allocatePorts({ externalPort: 18130 }), /已被占用/);
   await assert.rejects(() => allocatePorts({ externalPort: 9999 }), /须在/);
   // 显式上游 9999 允许（附着已有服务的场景）

@@ -1,6 +1,6 @@
 {
   "name": "zdashboard",
-  "version": "0.4.6",
+  "version": "0.5.0",
   "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目管理器 / Vocab",
   "private": true,
   "type": "module",
@@ -13,7 +13,8 @@
     "test": "node --test",
     "backup": "node --env-file-if-exists=.env scripts/backup.js",
     "archive-legacy": "node --env-file-if-exists=.env scripts/archive-legacy.js",
-    "pm:scan": "node --env-file-if-exists=.env scripts/scan-projects.js"
+    "pm:scan": "node --env-file-if-exists=.env scripts/scan-projects.js",
+    "remotes:create": "node --env-file-if-exists=.env scripts/create-remote-repos.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

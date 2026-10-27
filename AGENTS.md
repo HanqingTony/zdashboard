@@ -25,6 +25,8 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `CHECKPOINT` | `throttle` | WAL 策略：`always` / `throttle` / `off`；容器用 `always` |
 | `AUTH_TOKEN` | 空 | 可选写保护；设置后除 `/api/health` 外的 `/api/*` 需 `X-ZToken` 或 Bearer |
 | `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
+| `GITEE_ENV` | `<state>/gitee.env` | Gitee token/owner 文件（600） |
+| `PM_CREATE_REMOTES` | `1` | 新建仓库时是否自动创建 GitHub/Gitee 远端（`0` 关闭） |
 | `AGG_PROXY` | `http://127.0.0.1:12809` | 出境源代理 |
 | `PM_UPSTREAM_MIN/MAX` | `12710` / `12799` | 新建项目上游端口段 |
 | `PM_EXTERNAL_MIN/MAX` | `18130` / `18189` | nginx 对外端口段 |
@@ -95,6 +97,8 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 端口：上游自动分配 `12710–12799`；成品软件可显式用已有端口（如 8188）；对外自动 `18130–18189`
   - `src/pm/ports.js` 扫描 `ss`/活动 nginx conf/nav.json/DB；显式对外端口不得与其它 nginx conf 冲突
 - 仓库：`src/pm/repo.js`，新建到 `/home/tony/zrepo/<slug>`，`git init -b main` + 初始提交；
+- 远端：`src/pm/remotes.js` + `scripts/create-remote-repos.mjs` 真正创建 GitHub/Gitee 仓库、配双推并推送；
+  Gitee token 放 `/home/tony/zdata/zdashboard/gitee.env`（600，不进仓库）；`PM_CREATE_REMOTES=0` 可关闭自动建远端
   左栏「+ 仓库」默认同时自动分配 127xx↳181xx 并注册到端口表（可取消）
   origin fetch GitHub，pushurl GitHub+Gitee；扫描已有仓库用 `repo_created=0`
 - 扫描：`POST /api/pm/scan?what=repos|ports|all`（或 `npm run pm:scan`）：左栏只扫仓库、右栏只扫已知服务/成品软件
@@ -134,6 +138,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 生产：zmain 上 systemd `zdashboard.service`（单元模板在 `deploy/`，含最小权限 hardening）→ `127.0.0.1:28100`，nginx **18100** 反代
 - 备份：`deploy/zdashboard-backup.service/.timer`（每天 04:00，保留 7 份到 `/home/tony/zdata/backup/zdashboard`）
 - 生产 unit 从 `deploy/zdashboard.service` 安装；含 `ProtectHome=read-only` + `ReadWritePaths=/home/tony/zdata /home/tony/zrepo`，git 调用统一 `GIT_OPTIONAL_LOCKS=0`
+- 远端创建：`npm run remotes:create -- <name> --private --repo <path> --push`；PM 新建双远端时自动调用同一套逻辑
 - PM nginx：root 单元 `zdashboard-nginx-apply.path/.service`（脚本 `/usr/local/sbin/zdashboard-nginx-apply`）
 - 端口规范：PM 新项目走 12710+/18130+；不要复用 12700-12703 / 18100-18120 的已占用段
   - `PORT=28100`、`DB_PATH=/home/tony/zdata/zdb.db`、`CHECKPOINT=throttle`

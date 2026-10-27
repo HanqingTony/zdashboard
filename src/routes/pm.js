@@ -19,8 +19,9 @@ import { allocatePorts, listeningPorts, externalInOtherConf, activeMappings } fr
 import { slugify, validateSlug, repoPathFor, createRepo, repoInfo } from '../pm/repo.js';
 import { writeManagedState, readApplyStatus, navUrl } from '../pm/nginx.js';
 import { scanAndImport, syncRepos } from '../pm/scan.js';
+import { createRemoteReposAndPush } from '../pm/remotes.js';
 import {
-  PUBLIC_DIR, PM_REPO_ROOT,
+  PUBLIC_DIR, PM_REPO_ROOT, PM_CREATE_REMOTES,
   PM_UPSTREAM_MIN, PM_UPSTREAM_MAX, PM_EXTERNAL_MIN, PM_EXTERNAL_MAX,
 } from '../config.js';
 
@@ -116,6 +117,22 @@ router.post('/api/pm', async (req, res) => {
       repoPath = repo.repoPath;
       repoCreated = 1;
 
+      // 双远端 = 真正创建 GitHub+Gitee 仓库并推送，而不是只写两个 URL
+      let remotes = null;
+      if (dualRemote && PM_CREATE_REMOTES && body.createRemote !== false) {
+        try {
+          remotes = await createRemoteReposAndPush({
+            name: slug,
+            repoPath,
+            private: body.private !== false,
+            description: body.description || name,
+            push: true,
+          });
+        } catch (e) {
+          remotes = { ok: false, error: e.message };
+        }
+      }
+
       const row = store.create({
         slug, name, kind,
         repo_path: repoPath, repo_created: 1, dual_remote: bool(dualRemote),
@@ -134,7 +151,7 @@ router.post('/api/pm', async (req, res) => {
       writeManagedState(store.list());
       const listening = await listeningPorts();
       console.log(`[pm] 新建 ${slug}: repo=${repoPath} 127.0.0.1:${row.upstream_port ?? '-'} → :${row.external_port ?? '-'}`);
-      return res.json({ ok: true, project: enrich(store.get(row.id), listening, activeMappings()), apply: readApplyStatus() });
+      return res.json({ ok: true, project: enrich(store.get(row.id), listening, activeMappings()), remotes, apply: readApplyStatus() });
     }
 
     // 附着已有仓库（扫描/导入）
