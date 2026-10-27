@@ -15,7 +15,6 @@ const pmState = {
     showPortForm: false,
     showProjectForm: false,
     portTarget: null,
-    token: (() => { try { return localStorage.getItem('pmToken') || ''; } catch { return ''; } })(),
 };
 
 const KIND_LABEL = { repo: '仓库', software: '软件', service: '服务', infra: '基建', project: '项目' };
@@ -29,23 +28,8 @@ function updatePmBadge(n) {
     setStat('Db', n || 0);
 }
 
-function pmApi(path, opts = {}) {
-    const headers = { ...(opts.headers || {}) };
-    if (pmState.token) headers['X-PM-Token'] = pmState.token;
-    return apiFetch('/api/pm' + path, { ...opts, headers });
-}
-
-async function pmWrite(path, opts = {}) {
-    try {
-        return await pmApi(path, opts);
-    } catch (e) {
-        if (!/口令|写操作未启用|unauthorized/i.test(e.message) || /未启用/.test(e.message)) throw e;
-        const t = prompt('输入 PM 管理口令（PM_TOKEN，见 /home/tony/zdata/zdashboard/agg.env）');
-        if (!t) throw e;
-        pmState.token = t;
-        try { localStorage.setItem('pmToken', t); } catch { /* ignore */ }
-        return pmApi(path, opts);
-    }
+function pmWrite(path, opts = {}) {
+    return apiFetch('/api/pm' + path, opts);
 }
 
 function fmtTime(iso) {
@@ -225,8 +209,6 @@ function drawPm() {
     const screen = getActiveScreen();
     if (!screen || !isActive('pm') || !pmState.data) return;
     const d = pmState.data;
-    const writeAuth = d.writeAuth;
-    const disabled = writeAuth == null;
     const repos = d.projects.filter(p => p.repo_path);
     const ports = d.projects.filter(p => p.upstream_port != null || p.external_port != null);
     const listeningCount = ports.filter(p => p.upstreamListening).length;
@@ -243,8 +225,6 @@ function drawPm() {
             <button class="vb" onclick="pmNewProject()">+ 新建项目</button>
         </header>
         ${pmState.notice ? `<div class="pm-notice">${escHtml(pmState.notice)}</div>` : ''}
-        ${disabled ? '<div class="pm-warn">写操作未启用：请在 agg.env 配置 <code>PM_TOKEN</code>（或启用全局 AUTH_TOKEN）后重启。</div>' : ''}
-        ${writeAuth === 'pm_token' && !pmState.token ? '<div class="pm-warn">首次写操作会提示输入 PM 口令（PM_TOKEN）。</div>' : ''}
         ${pmState.showProjectForm ? projectFormHtml() : ''}
 
         <div class="pm-cols">

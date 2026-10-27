@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.4.4** · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.4.5** · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -65,7 +65,7 @@ Tools 里的 **🛠 项目管理器**：左栏「仓库管理」、右栏「端�
 - **nginx**：启用后由 root 的 `zdashboard-nginx-apply.path/service` 校验并安装 `/etc/nginx/conf.d/zdashboard-projects.conf`，`nginx -t` 失败自动回滚
 - **主页挂载**：`GET /api/nav` 合并静态黄页与托管项目；**左上「当前项目」**也来自 PM
 - **开关**：nginx / 主页 / 置顶独立；删除只删管理记录，仓库保留
-- **安全**：写操作需要 `PM_TOKEN`（`X-PM-Token`）或全局 `AUTH_TOKEN`；未配置时写接口 403，只读可用
+- **写保护**：已取消独立 PM 口令；如启用全局 `AUTH_TOKEN`，PM 写操作会一并受保护（当前未启用，仅建议内网使用）
 - 上游未监听时映射仍可打开，但会 502；管理器不启动项目进程
 
 ### 英语学习（Vocab）
@@ -123,7 +123,6 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | `CHECKPOINT` | `throttle` | WAL 策略：`always`（每次写）/ `throttle`（500ms 合并）/ `off`；容器用 `always` |
 | `AUTH_TOKEN` | 空 | 设置后除 `/api/health` 外的 `/api/*` 需要 `X-ZToken` 或 `Authorization: Bearer` |
 | `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
-| `PM_TOKEN` | 空 | 项目管理器写操作口令（`X-PM-Token`）；未配置且未启用 `AUTH_TOKEN` 时写接口 403 |
 | `PM_UPSTREAM_MIN/MAX` | `12710` / `12799` | 新建项目分配的上游端口段 |
 | `PM_EXTERNAL_MIN/MAX` | `18130` / `18189` | nginx 对外端口段 |
 | `PM_PUBLIC_HOST` | `192.168.0.102` | 主页项目卡片的 URL 主机 |
@@ -139,8 +138,6 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | — | Reddit OAuth（缺省退回 RSS，可能被 429） |
 
 `AUTH_TOKEN` 用法：浏览器打开一次 `https://host:18100/?token=xxx`（token 存入 localStorage 并自动从 URL 清除）；curl 用 `-H "X-ZToken: xxx"`。更稳妥的方式仍是 nginx `auth_basic` + `AUTH_TOKEN`，或不要让 18100 出内网。
-
-`PM_TOKEN` 放在 `/home/tony/zdata/zdashboard/agg.env`（600）；首次在项目管理器里点写操作会提示输入，存 localStorage。
 
 其它默认安全行为：
 
@@ -208,8 +205,6 @@ sudo cp deploy/zdashboard-nginx-apply.service deploy/zdashboard-nginx-apply.path
 sudo systemctl daemon-reload
 sudo systemctl enable --now zdashboard-nginx-apply.path
 
-# PM_TOKEN（写在 agg.env，600）
-# PM_TOKEN=<随机串>
 sudo systemctl restart zdashboard
 ```
 

@@ -26,7 +26,6 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `AUTH_TOKEN` | 空 | 可选写保护；设置后除 `/api/health` 外的 `/api/*` 需 `X-ZToken` 或 Bearer |
 | `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
 | `AGG_PROXY` | `http://127.0.0.1:12809` | 出境源代理 |
-| `PM_TOKEN` | 空 | 项目管理器写操作口令（X-PM-Token）；未配置且无 AUTH_TOKEN 时写接口 403 |
 | `PM_UPSTREAM_MIN/MAX` | `12710` / `12799` | 新建项目上游端口段 |
 | `PM_EXTERNAL_MIN/MAX` | `18130` / `18189` | nginx 对外端口段 |
 | `PM_PUBLIC_HOST` | `192.168.0.102` | 主页项目卡片 URL 主机 |
@@ -104,7 +103,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - git：`POST /api/pm/sync` 刷新 last_commit/dirty/ahead/synced_at（并发 3）
 - nginx：app 写 `PM_STATE_DIR/pm-nginx.conf`；root 的 `zdashboard-nginx-apply.path` 校验端口段、`nginx -t`、reload，失败回滚
 - 主页：`GET /api/nav` 合并 nav.json + 启用且挂主页的项目；**主界面左上「当前项目」**也来自 PM（前 5 条）
-- 写保护：`PM_TOKEN`（X-PM-Token）或全局 `AUTH_TOKEN`；未配置时写接口 403
+- 写保护：已取消 PM 口令；仅保留可选全局 `AUTH_TOKEN`（当前未启用）
 - 解绑：`DELETE /:id/repo` 保留端口；`DELETE /:id/ports` 保留仓库；两边都没了才删整条
 - 不启动项目进程、不自动 push/建远端
 
@@ -117,7 +116,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 ## Frontend Quirks
 - `public/app.js` 是启动入口（**ES module**）；各模块各自 `registerApp()` 并 `Object.assign(window, {...})` 暴露 inline onclick 函数
 - `core.js` 提供 `apiFetch / escHtml / safeUrl / getActiveScreen / layout / isActive / registerApp / 状态栏 helpers`；不要反向 import 具体模块
-- PM 模块：`public/pm.js`（写操作失败会提示 PM_TOKEN 并重试一次）；主页数据走 `/api/nav`，失败回退静态 `nav.json`
+- PM 模块：`public/pm.js`（无口令；写操作直接调用 `/api/pm`）；主页数据走 `/api/nav`，失败回退静态 `nav.json`
 - 竖屏/横屏两块屏都在 DOM 里；`layout()` 在跨 768px 断点时**重渲染当前应用**（修复旋转后空白）
 - 顶栏项目数/未读/版本是真实数据（`setStat`）；左上「当前项目」来自 `/api/pm`（前 5 条）
 - 侧栏 Projects/Tools 由 `renderPanels()` 从 `APPS` 配置生成（不再两份硬编码）
@@ -135,7 +134,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 生产：zmain 上 systemd `zdashboard.service`（单元模板在 `deploy/`，含最小权限 hardening）→ `127.0.0.1:28100`，nginx **18100** 反代
 - 备份：`deploy/zdashboard-backup.service/.timer`（每天 04:00，保留 7 份到 `/home/tony/zdata/backup/zdashboard`）
 - 生产 unit 从 `deploy/zdashboard.service` 安装；含 `ProtectHome=read-only` + `ReadWritePaths=/home/tony/zdata /home/tony/zrepo`，git 调用统一 `GIT_OPTIONAL_LOCKS=0`
-- PM nginx：root 单元 `zdashboard-nginx-apply.path/.service`（脚本 `/usr/local/sbin/zdashboard-nginx-apply`）；`PM_TOKEN` 放 agg.env
+- PM nginx：root 单元 `zdashboard-nginx-apply.path/.service`（脚本 `/usr/local/sbin/zdashboard-nginx-apply`）
 - 端口规范：PM 新项目走 12710+/18130+；不要复用 12700-12703 / 18100-18120 的已占用段
   - `PORT=28100`、`DB_PATH=/home/tony/zdata/zdb.db`、`CHECKPOINT=throttle`
   - ExecStart 用 pnpm 的 node（系统 node 的 ABI 可能与已编译 better-sqlite3 不符）

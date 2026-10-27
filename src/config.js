@@ -53,7 +53,5 @@ export const PM_NGINX_DIR = process.env.PM_NGINX_DIR || '/etc/nginx';
 export const PM_TLS_CERT = process.env.PM_TLS_CERT || '/etc/nginx/ssl/zmain.crt';
 export const PM_TLS_KEY = process.env.PM_TLS_KEY || '/etc/nginx/ssl/zmain.key';
 
-// 写操作口令：独立于 AUTH_TOKEN，避免为了 PM 把全局 API 锁死
-export const PM_TOKEN = process.env.PM_TOKEN || '';
 
 export const VERSION = JSON.parse(readFileSync(resolve(APP_ROOT, 'package.json'), 'utf8')).version;

@@ -9,10 +9,9 @@
 //   GET  /api/pm            列表 + nginx 应用状态
 //   GET  /api/nav           黄页 + 托管项目
 //
-// 写操作需要 PM_TOKEN（X-PM-Token）或已启用全局 AUTH_TOKEN。
+// 写操作依赖可选的全局 AUTH_TOKEN（app.js 中间件）；未启用时任何内网设备都可写。
 
 import { Router } from 'express';
-import { timingSafeEqual } from 'crypto';
 import { readFileSync, statSync, existsSync } from 'fs';
 import { resolve, sep } from 'path';
 import * as store from '../pm/store.js';
@@ -21,7 +20,7 @@ import { slugify, validateSlug, repoPathFor, createRepo, repoInfo } from '../pm/
 import { writeManagedState, readApplyStatus, navUrl } from '../pm/nginx.js';
 import { scanAndImport, syncRepos } from '../pm/scan.js';
 import {
-  PUBLIC_DIR, AUTH_TOKEN, PM_TOKEN, PM_REPO_ROOT,
+  PUBLIC_DIR, PM_REPO_ROOT,
   PM_UPSTREAM_MIN, PM_UPSTREAM_MAX, PM_EXTERNAL_MIN, PM_EXTERNAL_MAX,
 } from '../config.js';
 
@@ -30,18 +29,6 @@ const idOf = (v) => {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;
 };
-
-function requirePmWrite(req, res, next) {
-  if (AUTH_TOKEN) return next();               // 全局鉴权已在 app.js 完成
-  if (!PM_TOKEN) {
-    return res.status(403).json({ error: '写操作未启用：请配置 PM_TOKEN（或 AUTH_TOKEN）' });
-  }
-  const got = req.get('x-pm-token') || '';
-  const a = Buffer.from(got);
-  const b = Buffer.from(PM_TOKEN);
-  if (a.length === b.length && timingSafeEqual(a, b)) return next();
-  return res.status(401).json({ error: 'PM 管理口令无效' });
-}
 
 const bool = v => v ? 1 : 0;
 
@@ -85,7 +72,6 @@ async function snapshot() {
       external: [PM_EXTERNAL_MIN, PM_EXTERNAL_MAX],
     },
     apply: readApplyStatus(),
-    writeAuth: AUTH_TOKEN ? 'auth' : PM_TOKEN ? 'pm_token' : null,
     repoRoot: PM_REPO_ROOT,
   };
 }
@@ -94,7 +80,7 @@ router.get('/api/pm', async (req, res, next) => {
   try { res.json(await snapshot()); } catch (e) { next(e); }
 });
 
-router.post('/api/pm', requirePmWrite, async (req, res) => {
+router.post('/api/pm', async (req, res) => {
   try {
     const body = req.body || {};
     const name = String(body.name || '').trim().slice(0, 80);
@@ -184,7 +170,7 @@ router.post('/api/pm', requirePmWrite, async (req, res) => {
   }
 });
 
-router.patch('/api/pm/:id', requirePmWrite, async (req, res) => {
+router.patch('/api/pm/:id', async (req, res) => {
   try {
     const id = idOf(req.params.id);
     if (!id) return res.status(400).json({ error: '无效 id' });
@@ -242,7 +228,7 @@ router.patch('/api/pm/:id', requirePmWrite, async (req, res) => {
 });
 
 // 解绑仓库（保留端口）；如果两边都没了则删除整条
-router.delete('/api/pm/:id/repo', requirePmWrite, (req, res) => {
+router.delete('/api/pm/:id/repo', (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(400).json({ error: '无效 id' });
   const row = store.get(id);
@@ -255,7 +241,7 @@ router.delete('/api/pm/:id/repo', requirePmWrite, (req, res) => {
 });
 
 // 解绑端口映射（保留仓库）；如果两边都没了则删除整条
-router.delete('/api/pm/:id/ports', requirePmWrite, (req, res) => {
+router.delete('/api/pm/:id/ports', (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(400).json({ error: '无效 id' });
   const row = store.get(id);
@@ -267,7 +253,7 @@ router.delete('/api/pm/:id/ports', requirePmWrite, (req, res) => {
   res.json({ ok: true, slug: row.slug, removedRow: !store.get(id), apply: readApplyStatus() });
 });
 
-router.delete('/api/pm/:id', requirePmWrite, (req, res) => {
+router.delete('/api/pm/:id', (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(400).json({ error: '无效 id' });
   const row = store.get(id);
@@ -277,19 +263,19 @@ router.delete('/api/pm/:id', requirePmWrite, (req, res) => {
   res.json({ ok: true, removed: row.slug, keptRepo: !!row.repo_path, apply: readApplyStatus() });
 });
 
-router.post('/api/pm/apply', requirePmWrite, (req, res) => {
+router.post('/api/pm/apply', (req, res) => {
   const state = writeManagedState(store.list());
   res.json({ ok: true, state, apply: readApplyStatus() });
 });
 
-router.post('/api/pm/sync', requirePmWrite, async (req, res, next) => {
+router.post('/api/pm/sync', async (req, res, next) => {
   try {
     const r = await syncRepos();
     res.json({ ok: true, ...r, ...(await snapshot()) });
   } catch (e) { next(e); }
 });
 
-router.post('/api/pm/scan', requirePmWrite, async (req, res, next) => {
+router.post('/api/pm/scan', async (req, res, next) => {
   try {
     const what = String(req.query.what || req.body?.what || 'all');
     if (!['all', 'repos', 'ports'].includes(what)) return res.status(400).json({ error: 'what 须为 all/repos/ports' });

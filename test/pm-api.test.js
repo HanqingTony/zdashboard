@@ -11,7 +11,6 @@ process.env.CHECKPOINT = 'off';
 process.env.PM_STATE_DIR = join(TMP, 'state');
 process.env.PM_REPO_ROOT = join(TMP, 'repos');
 process.env.PM_NGINX_DIR = join(TMP, 'nginx');
-process.env.PM_TOKEN = 'secret';
 
 mkdirSync(process.env.PM_STATE_DIR, { recursive: true });
 mkdirSync(process.env.PM_REPO_ROOT, { recursive: true });
@@ -24,15 +23,9 @@ const base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => { server.close(); rmSync(TMP, { recursive: true, force: true }); });
 
 const json = (path, opts) => fetch(base + path, opts);
-const H = { 'Content-Type': 'application/json', 'X-PM-Token': 'secret' };
+const H = { 'Content-Type': 'application/json' };
 
-test('端口条目（无仓库）+ nav + 开关 + 删除', async () => {
-  const noToken = await json('/api/pm', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'demo', createRepo: false }),
-  });
-  assert.equal(noToken.status, 401);
-
+test('端口条目（无仓库）+ nav + 开关 + 删除（无 PM 口令）', async () => {
   const created = await (await json('/api/pm', {
     method: 'POST', headers: H,
     body: JSON.stringify({ name: 'demo', createRepo: false, managePorts: true, nginxEnabled: true, webEnabled: true }),
