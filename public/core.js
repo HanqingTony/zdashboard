@@ -78,6 +78,7 @@ const APPS = [
     { app: 'nav', label: '🧭 服务导航', badge: '18100' },
     { app: 'agg', label: '📡 信息聚合', badgeId: 'badgeAgg' },
     { app: 'projects', label: '📋 项目台账', badgeId: 'badgePj' },
+    { app: 'pm', label: '🛠 项目管理器', badgeId: 'badgePm' },
     { app: 'vocab', label: '📚 Vocab Builder', badgeId: 'badgeVocab' },
     { app: null, label: '✖ Empty' },
     { label: '📝 Diary' },

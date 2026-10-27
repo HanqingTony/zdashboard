@@ -3,6 +3,7 @@ import './vocab.js';
 import './nav.js';
 import './agg.js';
 import './projects.js';
+import './pm.js';
 
 import { startApp, setStat, updateAggBadge } from './core.js';
 import { aggFetch, startAggPoll } from './agg.js';

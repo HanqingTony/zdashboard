@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch zdashboard managed project nginx desired state
+
+[Path]
+PathChanged=/home/tony/zdata/zdashboard/pm-nginx.conf
+PathExists=/home/tony/zdata/zdashboard/pm-nginx.conf
+Unit=zdashboard-nginx-apply.service
+TriggerLimitIntervalSec=0
+TriggerLimitBurst=0
+
+[Install]
+WantedBy=paths.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply zdashboard managed project nginx config
+After=network.target
+StartLimitIntervalSec=0
+StartLimitBurst=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zdashboard-nginx-apply
+User=root
+Group=root

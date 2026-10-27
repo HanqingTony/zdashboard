@@ -23,13 +23,14 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=zdashboard
 
-# 最小权限：只允许写 /home/tony/zdata（数据库 / 备份），仓库与 home 其余部分只读。
+# 最小权限：只允许写 /home/tony/zdata（数据库/备份/PM 期望状态）与 /home/tony/zrepo（新建项目仓库），
+# home 其余部分只读。
 # git 同步与版本探针已使用 GIT_OPTIONAL_LOCKS=0 / --no-optional-locks，不会写 .git/index。
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/tony/zdata
+ReadWritePaths=/home/tony/zdata /home/tony/zrepo
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes

@@ -6,26 +6,91 @@
       "name": "对外（LAN 可达）",
       "note": "181xx = 唯一入口（nginx TLS）→ 28xxx 回环上游",
       "items": [
-        { "name": "zDashboard", "url": "https://192.168.0.102:18100/", "desc": "本页 · 服务导航 + 信息聚合 + 项目台账 + Vocab", "port": "18100", "upstream": "28100" },
-        { "name": "dsh web", "url": "https://192.168.0.102:18110/", "desc": "DeepSeek Harness 工作台", "port": "18110", "upstream": "28110", "tags": ["遗留 3080/3081"] },
-        { "name": "MinIO 控制台", "url": "https://192.168.0.102:18101/", "desc": "对象存储管理台（S3 API 仍在 :9000）", "port": "18101", "upstream": "28101" },
-        { "name": "searxng", "url": "https://192.168.0.102:18102/", "desc": "元搜索（自建实例）", "port": "18102", "upstream": "28102" },
-        { "name": "anm MCP", "url": "https://192.168.0.102:18103/mcp", "desc": "笔记 MCP（SSE · 按需启动）", "port": "18103", "upstream": "28103" },
-        { "name": "comfy-web", "url": "https://192.168.0.102:18104/", "desc": "ComfyUI 工作流操作台 + 视频编辑器", "port": "18104", "upstream": "28104" },
-        { "name": "LLM API", "url": "http://192.168.0.102:8080/v1", "desc": "llama.cpp · OpenAI 兼容（按需启动）", "port": "8080", "tags": ["例外 3：端口固定 8080，勿迁 181xx/281xx"] },
-        { "name": "alooplayer", "url": "http://192.168.0.102:18190/", "desc": "独立 nginx 静态站（明文，待规范）", "port": "18190", "tags": ["无 TLS"] }
+        {
+          "name": "zDashboard",
+          "url": "https://192.168.0.102:18100/",
+          "desc": "本页 · 服务导航 + 信息聚合 + 项目台账 + Vocab",
+          "port": "18100",
+          "upstream": "28100"
+        },
+        {
+          "name": "dsh web",
+          "url": "https://192.168.0.102:18110/",
+          "desc": "DeepSeek Harness 工作台",
+          "port": "18110",
+          "upstream": "28110",
+          "tags": [
+            "遗留 3080/3081"
+          ]
+        },
+        {
+          "name": "MinIO 控制台",
+          "url": "https://192.168.0.102:18101/",
+          "desc": "对象存储管理台（S3 API 仍在 :9000）",
+          "port": "18101",
+          "upstream": "28101"
+        },
+        {
+          "name": "searxng",
+          "url": "https://192.168.0.102:18102/",
+          "desc": "元搜索（自建实例）",
+          "port": "18102",
+          "upstream": "28102"
+        },
+        {
+          "name": "comfy-web",
+          "url": "https://192.168.0.102:18104/",
+          "desc": "ComfyUI 工作流操作台 + 视频编辑器",
+          "port": "18104",
+          "upstream": "28104"
+        },
+        {
+          "name": "LLM API",
+          "url": "http://192.168.0.102:8080/v1",
+          "desc": "llama.cpp · OpenAI 兼容（按需启动）",
+          "port": "8080",
+          "tags": [
+            "例外 3：端口固定 8080，勿迁 181xx/281xx"
+          ]
+        },
+        {
+          "name": "alooplayer",
+          "url": "http://192.168.0.102:18190/",
+          "desc": "独立 nginx 静态站（明文，待规范）",
+          "port": "18190",
+          "tags": [
+            "无 TLS"
+          ]
+        }
       ]
     },
     {
       "name": "仅本机（回环内部入口）",
       "note": "127xx · 非浏览器/给本机进程与隧道用",
       "items": [
-        { "name": "dsh a2a", "url": "https://127.0.0.1:12700/", "desc": "A2A 端点", "port": "12700", "upstream": "41241" },
-        { "name": "anm-core API", "url": "https://127.0.0.1:12701/", "desc": "anm 人机 HTTP API", "port": "12701", "upstream": "17373" },
-        { "name": "cloudflared 指标", "url": "https://127.0.0.1:12702/metrics", "desc": "隧道指标", "port": "12702", "upstream": "20241" },
-        { "name": "avocal MCP 隧道", "url": "https://127.0.0.1:12703/", "desc": "ssh -L → 101:18200", "port": "12703", "upstream": "101:18200" }
+        {
+          "name": "dsh a2a",
+          "url": "https://127.0.0.1:12700/",
+          "desc": "A2A 端点",
+          "port": "12700",
+          "upstream": "41241"
+        },
+        {
+          "name": "cloudflared 指标",
+          "url": "https://127.0.0.1:12702/metrics",
+          "desc": "隧道指标",
+          "port": "12702",
+          "upstream": "20241"
+        },
+        {
+          "name": "avocal MCP 隧道",
+          "url": "https://127.0.0.1:12703/",
+          "desc": "ssh -L → 101:18200",
+          "port": "12703",
+          "upstream": "101:18200"
+        }
       ]
     }
   ],
-  "footer": "端口规范：18xxx 对外入口（nginx TLS，唯一入口）· 28xxx 回环上游（末三位配对，应用只绑 127.0.0.1）· 127xx 回环内部入口 · 例外：非 Web 协议端口（MinIO S3 API 9000、代理 10808/12808、smbd 445）与 127xx 入口的上游不迁移。导航内容即 public/nav.json；新增服务三处同步：nginx conf / nav.json / anm facts「nginx」。"
+  "footer": "项目管理器：12710+ ↳ 18130+（由 zdashboard 生成）· 端口规范：18xxx 对外入口（nginx TLS，唯一入口）· 28xxx 回环上游（末三位配对，应用只绑 127.0.0.1）· 127xx 回环内部入口 · 例外：非 Web 协议端口（MinIO S3 API 9000、代理 10808/12808、smbd 445）与 127xx 入口的上游不迁移。导航内容即 public/nav.json；新增服务三处同步：nginx conf / nav.json / anm facts「nginx」。"
 }

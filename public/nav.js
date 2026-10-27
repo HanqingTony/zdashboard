@@ -1,16 +1,18 @@
 // public/nav.js — 服务导航（黄页）
-import { escHtml, safeUrl, isActive, registerApp } from './core.js';
+import { apiFetch, escHtml, safeUrl, isActive, registerApp } from './core.js';
 
 // ========== 服务导航（黄页）==========
-const NAV_URL = 'nav.json';
-let navData = null;
-
+// 主页数据 = /api/nav（静态 nav.json + 项目管理器挂载的项目）
+// 每次进入都重新取一次；PM 增删后回到主页即可看到新卡片。
 async function loadNavData() {
-    if (navData) return navData;
-    const res = await fetch(NAV_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    navData = await res.json();
-    return navData;
+    try {
+        return await (await apiFetch('/api/nav')).json();
+    } catch (e) {
+        // 未配置全局 token / API 暂时不可用时退回静态黄页
+        const res = await fetch('nav.json', { cache: 'no-store' });
+        if (!res.ok) throw e;
+        return res.json();
+    }
 }
 
 function navItemHtml(it) {

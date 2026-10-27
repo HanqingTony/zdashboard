@@ -8,6 +8,7 @@ import { articlesRouter } from './routes/articles.js';
 import { vocabRouter } from './routes/vocab.js';
 import { aggRouter } from './routes/agg.js';
 import { projectsRouter } from './routes/projects.js';
+import { pmRouter } from './routes/pm.js';
 
 export function createApp() {
   const app = express();
@@ -89,6 +90,7 @@ export function createApp() {
   app.use(vocabRouter);
   app.use(aggRouter);
   app.use(projectsRouter);
+  app.use(pmRouter);
 
   // API 404 也返回 JSON（否则会掉进 SPA/HTML 默认页）
   app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }));

@@ -156,6 +156,29 @@ export const MIGRATIONS = [
       remapColumn(db, 'zproject', 'layer', LEGACY_LAYER);
     },
   },
+  {
+    version: 5,
+    name: 'managed-project',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS managed_project (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          slug          TEXT NOT NULL UNIQUE,
+          name          TEXT NOT NULL,
+          repo_path     TEXT,
+          upstream_port INTEGER NOT NULL UNIQUE,   -- 127xx 回环上游
+          external_port INTEGER NOT NULL UNIQUE,   -- 181xx nginx 对外入口
+          nginx_enabled INTEGER NOT NULL DEFAULT 1,
+          web_enabled   INTEGER NOT NULL DEFAULT 1,  -- 是否挂到 zdashboard 主页
+          repo_created  INTEGER NOT NULL DEFAULT 0,
+          dual_remote   INTEGER NOT NULL DEFAULT 1,
+          created_at    TEXT NOT NULL,
+          updated_at    TEXT NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_mp_web ON managed_project (web_enabled, nginx_enabled)');
+    },
+  },
 ];
 
 export function migrate(db) {

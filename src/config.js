@@ -31,4 +31,30 @@ export const CHECKPOINT_MODE = (process.env.CHECKPOINT || 'throttle').toLowerCas
 export const ZPA_DIR = process.env.ZPA_DIR || '/home/tony/zrepo/zpa';
 export const ZREPO_DIR = process.env.ZREPO_DIR || '/home/tony/zrepo';
 
+// ---------- 项目管理器（PM） ----------
+// 端口段：127xx 回环上游（新项目专用 12710+），181xx 对外入口（托管项目 18130+）
+export const PM_UPSTREAM_MIN = int(process.env.PM_UPSTREAM_MIN, 12710);
+export const PM_UPSTREAM_MAX = int(process.env.PM_UPSTREAM_MAX, 12799);
+export const PM_EXTERNAL_MIN = int(process.env.PM_EXTERNAL_MIN, 18130);
+export const PM_EXTERNAL_MAX = int(process.env.PM_EXTERNAL_MAX, 18189);
+
+export const PM_PUBLIC_HOST = process.env.PM_PUBLIC_HOST || '192.168.0.102';
+export const PM_REPO_ROOT = process.env.PM_REPO_ROOT || ZREPO_DIR;
+export const PM_GIT_OWNER = process.env.PM_GIT_OWNER || 'HanqingTony';
+export const PM_GITHUB_BASE = process.env.PM_GITHUB_BASE || `git@github.com:${PM_GIT_OWNER}`;
+export const PM_GITEE_BASE = process.env.PM_GITEE_BASE || `git@gitee.com:${PM_GIT_OWNER}`;
+export const PM_GIT_NAME = process.env.PM_GIT_NAME || 'tony';
+export const PM_GIT_EMAIL = process.env.PM_GIT_EMAIL || 'tony@zmain.local';
+
+// 期望状态/应用状态目录（app 可写；root helper 读取）
+export const PM_STATE_DIR = process.env.PM_STATE_DIR || resolve(dirname(DB_PATH), 'zdashboard');
+export const PM_NGINX_CONF_STAGING = resolve(PM_STATE_DIR, 'pm-nginx.conf');
+export const PM_NGINX_STATUS = resolve(PM_STATE_DIR, 'pm-nginx-status.json');
+export const PM_NGINX_DIR = process.env.PM_NGINX_DIR || '/etc/nginx';
+export const PM_TLS_CERT = process.env.PM_TLS_CERT || '/etc/nginx/ssl/zmain.crt';
+export const PM_TLS_KEY = process.env.PM_TLS_KEY || '/etc/nginx/ssl/zmain.key';
+
+// 写操作口令：独立于 AUTH_TOKEN，避免为了 PM 把全局 API 锁死
+export const PM_TOKEN = process.env.PM_TOKEN || '';
+
 export const VERSION = JSON.parse(readFileSync(resolve(APP_ROOT, 'package.json'), 'utf8')).version;
