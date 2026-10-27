@@ -83,40 +83,49 @@ function repoRowHtml(p) {
     </div>`;
 }
 
-function nginxLed(p) {
+function listenCell(p) {
+    if (p.upstream_port == null) return '<span class="pm-dim">—</span>';
+    return `<span class="pm-led ${p.upstreamListening ? 'on' : 'off'}"></span><span class="pm-led-label ${p.upstreamListening ? 'on' : 'off'}">${p.upstreamListening ? '监听中' : '未监听'}</span>`;
+}
+
+function nginxCell(p) {
     const map = {
         forwarding: ['on', '转发中', 'PM 管理的 nginx 反向代理'],
-        manual: ['on manual', '手工转发', '已有手工 nginx 配置在反代'],
+        manual: ['on manual', '手工转发', '已有手工 nginx 配置在反代（迁移后可由 PM 开关）'],
         pending: ['pending', '待应用', '已启用，等待 nginx 应用'],
         conflict: ['err', '冲突', '该对外端口被别的 upstream 占用'],
         off: ['off', '未转发', '未启用 nginx 或尚未配置'],
     };
     const [cls, label, title] = map[p.nginxState] || map.off;
-    return `<span class="pm-led ${cls}" title="${escHtml(title)}"></span><span class="pm-led-label ${cls}">${label}</span>`;
+    const disabled = p.nginxState === 'manual' ? ' disabled' : '';
+    return `<button class="pm-nginx"${disabled} onclick="pmToggle(${p.id},'nginxEnabled',${!!p.nginx_enabled})" title="${escHtml(title)}">
+        <span class="pm-led ${cls}"></span><span class="pm-led-label ${cls}">${label}</span>
+    </button>`;
 }
 
 function portRowHtml(p) {
     const on = v => v ? 'on' : '';
-    const ports = p.upstream_port != null && p.external_port != null
-        ? `<span class="pm-ports"><b>127.0.0.1:${p.upstream_port}</b><i>↳</i><b>${p.external_port}</b></span>`
-        : '<span class="pm-dim">端口不完整</span>';
-    const up = p.upstream_port == null ? ''
-        : `<span class="pm-up ${p.upstreamListening ? 'on' : 'off'}">${p.upstreamListening ? '监听中' : '未监听'}</span>`;
-    return `<div class="pj-row pm-row${p.upstreamListening ? ' listening' : ''}" id="pm-port-${p.id}">
-        <div class="pj-main">
-            <span class="pj-name">${escHtml(p.name)}</span>
-            <code class="pm-slug">${escHtml(p.slug)}</code>
-            ${ports}${up}${nginxLed(p)}
-            <span class="pj-grow"></span>
-            ${starBtn(p)}
-            <button class="pj-v ${on(p.nginx_enabled)}" onclick="pmToggle(${p.id},'nginxEnabled',${!!p.nginx_enabled})" title="nginx 映射开关">nginx ${p.nginx_enabled ? '开' : '关'}</button>
-            <button class="pj-v ${on(p.web_enabled)}" onclick="pmToggle(${p.id},'webEnabled',${!!p.web_enabled})" title="是否挂到主页">主页 ${p.web_enabled ? '开' : '关'}</button>
-            ${p.url ? `<a class="vb pm-open ${p.nginx_enabled && p.web_enabled ? '' : 'disabled'}" href="${escHtml(safeUrl(p.url))}" target="_blank" rel="noopener">打开</a>` : ''}
-            <button class="agg-rf" onclick="pmRemovePorts(${p.id})" title="移除端口映射（仓库保留）">🗑</button>
-        </div>
-        <div class="pj-sub2">${p.repo_path ? escHtml(p.repo_path) : '<span class="pm-dim">无仓库（成品软件/服务）</span>'}</div>
-        ${p.note ? `<div class="pj-note">${escHtml(p.note)}</div>` : ''}
-    </div>`;
+    return `<tr class="${p.upstreamListening ? 'listening' : ''}" id="pm-port-${p.id}">
+        <td>
+            <div class="pm-name-cell" title="${escHtml(p.repo_path || p.name)}">
+                <span class="pj-name">${escHtml(p.name)}</span>
+                <span class="pm-slug">${escHtml(p.slug)}</span>
+            </div>
+        </td>
+        <td class="pm-num"><span class="pm-port-num">${p.upstream_port != null ? `127.0.0.1:${p.upstream_port}` : '—'}</span></td>
+        <td class="pm-arrow">→</td>
+        <td class="pm-num"><span class="pm-port-num">${p.external_port != null ? p.external_port : '—'}</span></td>
+        <td>${listenCell(p)}</td>
+        <td>${nginxCell(p)}</td>
+        <td>
+            <div class="pm-actions">
+                <button class="pj-v ${on(p.web_enabled)}" onclick="pmToggle(${p.id},'webEnabled',${!!p.web_enabled})" title="是否挂到主页">主页</button>
+                <button class="pj-v ${on(p.pinned)}" onclick="pmToggle(${p.id},'pinned',${!!p.pinned})" title="置顶">★</button>
+                ${p.url ? `<a class="vb pm-open ${p.nginx_enabled && p.web_enabled ? '' : 'disabled'}" href="${escHtml(safeUrl(p.url))}" target="_blank" rel="noopener" title="打开">↗</a>` : ''}
+                <button class="agg-rf" onclick="pmRemovePorts(${p.id})" title="移除端口（仓库保留）">🗑</button>
+            </div>
+        </td>
+    </tr>`;
 }
 
 function projectFormHtml() {
@@ -249,7 +258,19 @@ function drawPm() {
                     </span>
                 </div>
                 ${pmState.showPortForm ? portFormHtml() : ''}
-                <div class="pm-list">${ports.length ? ports.map(portRowHtml).join('') : '<div class="pm-empty">注册表为空。点「扫描运行服务」或「+ 注册端口」。</div>'}</div>
+                ${ports.length ? `<div class="pm-table-wrap">
+                    <table class="pm-table">
+                        <colgroup>
+                            <col style="width:26%"><col style="width:146px"><col style="width:20px">
+                            <col style="width:72px"><col style="width:78px"><col style="width:90px"><col style="width:136px">
+                        </colgroup>
+                        <thead><tr>
+                            <th>项目</th><th class="pm-num">上游端口</th><th></th><th class="pm-num">对外端口</th>
+                            <th>监听</th><th>nginx</th><th></th>
+                        </tr></thead>
+                        <tbody>${ports.map(portRowHtml).join('')}</tbody>
+                    </table>
+                </div>` : '<div class="pm-empty">注册表为空。点「扫描运行服务」或「+ 注册端口」。</div>'}
             </section>
         </div>
 
