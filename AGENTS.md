@@ -88,7 +88,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 
 ## 项目管理器（PM）
 - **台账已取消**；`zproject` 由迁移 v6 删除，所有项目管理集中到 `managed_project`（schema v6）
-- 前端左右分栏：左「仓库管理」/ 右「端口映射注册表」；同一行可同时出现在两边
+- 前端左右分栏：左「仓库管理」（有端口的行显示端口对 + 监听绿灯）/ 右「端口映射注册表」；同一行可同时出现在两边
 - 注册表状态：`upstreamListening` → 行绿框；`nginxState = forwarding|manual` → 绿灯；pending 黄、conflict 红、off 灰
 - `nginxState` 通过解析活动 nginx conf 的 `listen ↔ proxy_pass` 得出（`activeMappings()`），不只看 DB 开关
 - 一个条目可独立拥有：仓库（`repo_path`）、端口映射（`upstream_port → external_port`）、或两者

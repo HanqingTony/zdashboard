@@ -78,11 +78,17 @@ function repoText(p) {
 
 function repoRowHtml(p) {
     const hasPorts = p.upstream_port != null && p.external_port != null;
-    return `<div class="pj-row pm-row" id="pm-repo-${p.id}">
+    const ports = hasPorts
+        ? `<span class="pm-ports"><b>127.0.0.1:${p.upstream_port}</b><i>↳</i><b>${p.external_port}</b></span>`
+        : '';
+    const listenLed = p.upstream_port == null ? ''
+        : `<span class="pm-led ${p.upstreamListening ? 'on' : 'off'}"></span><span class="pm-led-label ${p.upstreamListening ? 'on' : 'off'}">${p.upstreamListening ? '监听中' : '未监听'}</span>`;
+    return `<div class="pj-row pm-row${p.upstreamListening ? ' listening' : ''}" id="pm-repo-${p.id}">
         <div class="pj-main">
             <span class="pj-name">${escHtml(p.name)}</span>
             <code class="pm-slug">${escHtml(p.slug)}</code>
             <span class="pm-kind">${escHtml(KIND_LABEL[p.kind] || p.kind || '项目')}</span>
+            ${ports}${listenLed}
             <span class="pj-grow"></span>
             ${starBtn(p)}
             ${hasPorts ? '' : `<button class="pj-v" onclick="pmAddPort(${p.id})" title="给这个仓库添加端口映射">+ 端口</button>`}
