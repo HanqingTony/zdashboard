@@ -71,7 +71,7 @@ function listRepos() {
  * 扫描并导入。
  * @param {{sync?:boolean}} opts
  */
-export async function scanAndImport({ sync = true } = {}) {
+export async function scanAndImport({ sync = true, what = 'all' } = {}) {
   const listening = await listeningPorts();
   const created = [];
   const skipped = [];
@@ -91,7 +91,7 @@ export async function scanAndImport({ sync = true } = {}) {
   };
 
   // 1) 已知服务（含 ComfyUI 这种成品软件）
-  for (const s of KNOWN_SERVICES) {
+  if (what !== 'repos') for (const s of KNOWN_SERVICES) {
     if (!listening.has(s.port)) { skipped.push(`${s.slug}(not-running)`); continue; }
     const repoPath = s.repo && existsSync(join(s.repo, '.git')) ? s.repo : null;
     // 已存在则跳过（必须在端口分配之前；否则会撞上自己的 upstream/external）
@@ -135,7 +135,7 @@ export async function scanAndImport({ sync = true } = {}) {
   }
 
   // 2) 本机仓库（已被服务条目关联的跳过）
-  for (const r of listRepos()) {
+  if (what !== 'ports') for (const r of listRepos()) {
     if (store.findByRepoPath(r.path)) { skipped.push(`${r.slug}(repo-linked)`); continue; }
     let dual = 1;
     try {

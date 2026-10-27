@@ -91,6 +91,29 @@ export function saveGitMany(rows) {
   return rows.length;
 }
 
+export function clearRepo(id) {
+  const n = db.prepare(`
+    UPDATE managed_project
+       SET repo_path = NULL, repo_created = 0, dual_remote = 0,
+           last_commit_at = NULL, last_commit_subject = NULL,
+           dirty = NULL, ahead = NULL, synced_at = NULL, updated_at = @now
+     WHERE id = @id
+  `).run({ id, now: nowIso() }).changes;
+  if (n > 0) checkpoint();
+  return n > 0;
+}
+
+export function clearPorts(id) {
+  const n = db.prepare(`
+    UPDATE managed_project
+       SET upstream_port = NULL, external_port = NULL,
+           nginx_enabled = 0, web_enabled = 0, updated_at = @now
+     WHERE id = @id
+  `).run({ id, now: nowIso() }).changes;
+  if (n > 0) checkpoint();
+  return n > 0;
+}
+
 export function remove(id) {
   const n = db.prepare('DELETE FROM managed_project WHERE id = ?').run(id).changes;
   if (n > 0) checkpoint();

@@ -609,6 +609,23 @@
 
         /* ========== 项目管理器（PM）模块 ========== */
         .pm-app{height:100%;overflow-y:auto;padding:12px 14px 20px}
+        .pm-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-top:10px}
+        .pm-col{
+            min-width:0;padding:8px;border:1px solid var(--bdr);border-radius:7px;
+            background:rgba(19,21,30,.55);
+        }
+        .pm-col-hd{display:flex;align-items:center;gap:6px;margin-bottom:6px;min-width:0}
+        .pm-col-hd h2{font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap}
+        .pm-col-cnt{font-size:9px;color:var(--tx3);background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:0 5px}
+        .pm-col-actions{margin-left:auto;display:flex;gap:4px;flex-shrink:0}
+        .pm-col-actions .vb{padding:2px 6px;font-size:9px}
+        .pm-form-col{margin:4px 0 8px}
+        .pm-form-title{font-size:10px;color:var(--ac2);margin-bottom:4px}
+        .pm-empty{padding:14px 8px;text-align:center;font-size:9.5px;color:var(--tx3)}
+        .pm-col .pm-list{margin-top:2px}
+        @media (max-width:900px){
+            .pm-cols{grid-template-columns:1fr}
+        }
         .pm-app::-webkit-scrollbar{width:4px}
         .pm-app::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
         .pm-ts{font-size:9px;color:var(--tx3);margin-left:5px}

@@ -231,6 +231,32 @@ router.patch('/api/pm/:id', requirePmWrite, async (req, res) => {
   }
 });
 
+// 解绑仓库（保留端口）；如果两边都没了则删除整条
+router.delete('/api/pm/:id/repo', requirePmWrite, (req, res) => {
+  const id = idOf(req.params.id);
+  if (!id) return res.status(400).json({ error: '无效 id' });
+  const row = store.get(id);
+  if (!row) return res.status(404).json({ error: 'not found' });
+  store.clearRepo(id);
+  const after = store.get(id);
+  if (after && after.upstream_port == null && after.external_port == null) store.remove(id);
+  writeManagedState(store.list());
+  res.json({ ok: true, slug: row.slug, removedRow: !store.get(id) });
+});
+
+// 解绑端口映射（保留仓库）；如果两边都没了则删除整条
+router.delete('/api/pm/:id/ports', requirePmWrite, (req, res) => {
+  const id = idOf(req.params.id);
+  if (!id) return res.status(400).json({ error: '无效 id' });
+  const row = store.get(id);
+  if (!row) return res.status(404).json({ error: 'not found' });
+  store.clearPorts(id);
+  const after = store.get(id);
+  if (after && !after.repo_path) store.remove(id);
+  writeManagedState(store.list());
+  res.json({ ok: true, slug: row.slug, removedRow: !store.get(id), apply: readApplyStatus() });
+});
+
 router.delete('/api/pm/:id', requirePmWrite, (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(400).json({ error: '无效 id' });
@@ -255,7 +281,9 @@ router.post('/api/pm/sync', requirePmWrite, async (req, res, next) => {
 
 router.post('/api/pm/scan', requirePmWrite, async (req, res, next) => {
   try {
-    const r = await scanAndImport({ sync: true });
+    const what = String(req.query.what || req.body?.what || 'all');
+    if (!['all', 'repos', 'ports'].includes(what)) return res.status(400).json({ error: 'what 须为 all/repos/ports' });
+    const r = await scanAndImport({ sync: true, what });
     writeManagedState(store.list());
     res.json({ ok: true, ...r, ...(await snapshot()) });
   } catch (e) { next(e); }

@@ -9,7 +9,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（26 用例，内存库）
+npm test           # node --test（28 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -66,7 +66,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `src/routes/articles.js` | `/api/articles` | 文章 CRUD；分词入库；删除后清理孤立词 |
 | `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | 单词状态与统计 |
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
-| `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
+| `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply,/:id/repo,/:id/ports]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
 | `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
 所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`。
@@ -88,19 +88,21 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 
 ## 项目管理器（PM）
 - **台账已取消**；`zproject` 由迁移 v6 删除，所有项目管理集中到 `managed_project`（schema v6）
+- 前端左右分栏：左「仓库管理」/ 右「端口管理」；同一行可同时出现在两边
 - 一个条目可独立拥有：仓库（`repo_path`）、端口映射（`upstream_port → external_port`）、或两者
   - 例：ComfyUI = 仓库 + 8188→18130；MinIO = 只有端口；普通新项目 = 两者
 - 端口：上游自动分配 `12710–12799`；成品软件可显式用已有端口（如 8188）；对外自动 `18130–18189`
   - `src/pm/ports.js` 扫描 `ss`/活动 nginx conf/nav.json/DB；显式对外端口不得与其它 nginx conf 冲突
 - 仓库：`src/pm/repo.js`，新建到 `/home/tony/zrepo/<slug>`，`git init -b main` + 初始提交；
   origin fetch GitHub，pushurl GitHub+Gitee；扫描已有仓库用 `repo_created=0`
-- 扫描：`POST /api/pm/scan` / `npm run pm:scan`：导入本机仓库 + 已知运行服务（ComfyUI/dsh/comfy-web/MinIO/searxng/zres）
+- 扫描：`POST /api/pm/scan?what=repos|ports|all`（或 `npm run pm:scan`）：左栏只扫仓库、右栏只扫已知服务/成品软件
   - 已有手工 nginx 映射的服务（18110/18104/18101/18102/18120）以 `nginx_enabled=0` 登记，避免重复 listen
 - git：`POST /api/pm/sync` 刷新 last_commit/dirty/ahead/synced_at（并发 3）
 - nginx：app 写 `PM_STATE_DIR/pm-nginx.conf`；root 的 `zdashboard-nginx-apply.path` 校验端口段、`nginx -t`、reload，失败回滚
 - 主页：`GET /api/nav` 合并 nav.json + 启用且挂主页的项目；**主界面左上「当前项目」**也来自 PM（前 5 条）
 - 写保护：`PM_TOKEN`（X-PM-Token）或全局 `AUTH_TOKEN`；未配置时写接口 403
-- 删除只删管理记录，仓库保留；不启动项目进程、不自动 push/建远端
+- 解绑：`DELETE /:id/repo` 保留端口；`DELETE /:id/ports` 保留仓库；两边都没了才删整条
+- 不启动项目进程、不自动 push/建远端
 
 ## 服务导航（黄页）
 - 数据源：`public/nav.json`（静态文件）——**改导航只改这个 JSON**

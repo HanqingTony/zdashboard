@@ -58,3 +58,44 @@ test('端口条目（无仓库）+ nav + 开关 + 删除', async () => {
   const list = await (await json('/api/pm')).json();
   assert.equal(list.projects.length, 0);
 });
+
+test('仓库/端口解耦：解绑一侧不删另一侧', async () => {
+  // 只有仓库
+  const repo = await (await json('/api/pm', {
+    method: 'POST', headers: H,
+    body: JSON.stringify({ name: 'repotest', slug: 'repotest', createRepo: true, managePorts: false }),
+  })).json();
+  assert.equal(repo.ok, true);
+  assert.ok(repo.project.repo_path);
+  assert.equal(repo.project.upstream_port, null);
+
+  const rid = repo.project.id;
+  // 给仓库加端口
+  const withPort = await (await json(`/api/pm/${rid}`, {
+    method: 'PATCH', headers: H,
+    body: JSON.stringify({ upstreamPort: '', externalPort: '', nginxEnabled: true, webEnabled: true }),
+  })).json();
+  assert.ok(withPort.project.upstream_port >= 12710);
+  assert.ok(withPort.project.external_port >= 18130);
+
+  // 解绑仓库 → 端口保留，行还在
+  assert.equal((await json(`/api/pm/${rid}/repo`, { method: 'DELETE', headers: H })).status, 200);
+  let rows = (await (await json('/api/pm')).json()).projects;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].repo_path, null);
+  assert.ok(rows[0].upstream_port);
+
+  // 再解绑端口 → 行删除
+  assert.equal((await json(`/api/pm/${rid}/ports`, { method: 'DELETE', headers: H })).status, 200);
+  rows = (await (await json('/api/pm')).json()).projects;
+  assert.equal(rows.length, 0);
+});
+
+test('扫描模式：只扫端口 / 只扫仓库', async () => {
+  const ports = await (await json('/api/pm/scan?what=ports', { method: 'POST', headers: H })).json();
+  assert.ok(Array.isArray(ports.created));
+  const repos = await (await json('/api/pm/scan?what=repos', { method: 'POST', headers: H })).json();
+  assert.ok(Array.isArray(repos.created));
+  const bad = await json('/api/pm/scan?what=xxx', { method: 'POST', headers: H });
+  assert.equal(bad.status, 400);
+});
