@@ -16,7 +16,7 @@ import { timingSafeEqual } from 'crypto';
 import { readFileSync, statSync, existsSync } from 'fs';
 import { resolve, sep } from 'path';
 import * as store from '../pm/store.js';
-import { allocatePorts, listeningPorts, externalInOtherConf } from '../pm/ports.js';
+import { allocatePorts, listeningPorts, externalInOtherConf, activeMappings } from '../pm/ports.js';
 import { slugify, validateSlug, repoPathFor, createRepo, repoInfo } from '../pm/repo.js';
 import { writeManagedState, readApplyStatus, navUrl } from '../pm/nginx.js';
 import { scanAndImport, syncRepos } from '../pm/scan.js';
@@ -45,7 +45,14 @@ function requirePmWrite(req, res, next) {
 
 const bool = v => v ? 1 : 0;
 
-function enrich(p, listening) {
+function enrich(p, listening, active) {
+  const mappedUp = p.external_port != null ? active.get(p.external_port) : null;
+  let nginxState = 'off';
+  if (mappedUp != null) {
+    nginxState = mappedUp === p.upstream_port ? (p.nginx_enabled ? 'forwarding' : 'manual') : 'conflict';
+  } else if (p.nginx_enabled) {
+    nginxState = 'pending';
+  }
   return {
     ...p,
     nginx_enabled: !!p.nginx_enabled,
@@ -53,6 +60,8 @@ function enrich(p, listening) {
     dual_remote: !!p.dual_remote,
     repo_created: !!p.repo_created,
     upstreamListening: p.upstream_port != null && listening.has(p.upstream_port),
+    nginxState,
+    nginxMappedUpstream: mappedUp ?? null,
     repo: p.repo_path ? {
       exists: existsSync(p.repo_path),
       dualPush: !!p.dual_remote,
@@ -68,8 +77,9 @@ function enrich(p, listening) {
 
 async function snapshot() {
   const listening = await listeningPorts();
+  const active = activeMappings();
   return {
-    projects: store.list().map(p => enrich(p, listening)),
+    projects: store.list().map(p => enrich(p, listening, active)),
     ranges: {
       upstream: [PM_UPSTREAM_MIN, PM_UPSTREAM_MAX],
       external: [PM_EXTERNAL_MIN, PM_EXTERNAL_MAX],
@@ -138,7 +148,7 @@ router.post('/api/pm', requirePmWrite, async (req, res) => {
       writeManagedState(store.list());
       const listening = await listeningPorts();
       console.log(`[pm] 新建 ${slug}: repo=${repoPath} 127.0.0.1:${row.upstream_port ?? '-'} → :${row.external_port ?? '-'}`);
-      return res.json({ ok: true, project: enrich(store.get(row.id), listening), apply: readApplyStatus() });
+      return res.json({ ok: true, project: enrich(store.get(row.id), listening, activeMappings()), apply: readApplyStatus() });
     }
 
     // 附着已有仓库（扫描/导入）
@@ -167,7 +177,7 @@ router.post('/api/pm', requirePmWrite, async (req, res) => {
     });
     writeManagedState(store.list());
     const listening = await listeningPorts();
-    res.json({ ok: true, project: enrich(row, listening), apply: readApplyStatus() });
+    res.json({ ok: true, project: enrich(row, listening, activeMappings()), apply: readApplyStatus() });
   } catch (e) {
     const code = /UNIQUE|已存在/.test(e.message) ? 409 : /已占用|须在|无空闲|越界/.test(e.message) ? 400 : 500;
     res.status(code).json({ error: e.message });
@@ -224,7 +234,7 @@ router.patch('/api/pm/:id', requirePmWrite, async (req, res) => {
     const row = store.update(id, patch);
     writeManagedState(store.list());
     const listening = await listeningPorts();
-    res.json({ ok: true, project: enrich(row, listening), apply: readApplyStatus() });
+    res.json({ ok: true, project: enrich(row, listening, activeMappings()), apply: readApplyStatus() });
   } catch (e) {
     const code = /已占用|须在|无空闲|UNIQUE/.test(e.message) ? 400 : 500;
     res.status(code).json({ error: e.message });

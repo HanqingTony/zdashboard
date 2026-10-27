@@ -13,6 +13,7 @@ const pmState = {
     notice: '',
     showRepoForm: false,
     showPortForm: false,
+    showProjectForm: false,
     portTarget: null,
     token: (() => { try { return localStorage.getItem('pmToken') || ''; } catch { return ''; } })(),
 };
@@ -92,18 +93,30 @@ function repoRowHtml(p) {
     </div>`;
 }
 
+function nginxLed(p) {
+    const map = {
+        forwarding: ['on', '转发中', 'PM 管理的 nginx 反向代理'],
+        manual: ['on manual', '手工转发', '已有手工 nginx 配置在反代'],
+        pending: ['pending', '待应用', '已启用，等待 nginx 应用'],
+        conflict: ['err', '冲突', '该对外端口被别的 upstream 占用'],
+        off: ['off', '未转发', '未启用 nginx 或尚未配置'],
+    };
+    const [cls, label, title] = map[p.nginxState] || map.off;
+    return `<span class="pm-led ${cls}" title="${escHtml(title)}"></span><span class="pm-led-label ${cls}">${label}</span>`;
+}
+
 function portRowHtml(p) {
     const on = v => v ? 'on' : '';
     const ports = p.upstream_port != null && p.external_port != null
         ? `<span class="pm-ports"><b>127.0.0.1:${p.upstream_port}</b><i>↳</i><b>${p.external_port}</b></span>`
         : '<span class="pm-dim">端口不完整</span>';
     const up = p.upstream_port == null ? ''
-        : `<span class="pm-up ${p.upstreamListening ? 'on' : 'off'}">${p.upstreamListening ? '上游监听中' : '上游未监听'}</span>`;
-    return `<div class="pj-row pm-row" id="pm-port-${p.id}">
+        : `<span class="pm-up ${p.upstreamListening ? 'on' : 'off'}">${p.upstreamListening ? '监听中' : '未监听'}</span>`;
+    return `<div class="pj-row pm-row${p.upstreamListening ? ' listening' : ''}" id="pm-port-${p.id}">
         <div class="pj-main">
             <span class="pj-name">${escHtml(p.name)}</span>
             <code class="pm-slug">${escHtml(p.slug)}</code>
-            ${ports}${up}
+            ${ports}${up}${nginxLed(p)}
             <span class="pj-grow"></span>
             ${starBtn(p)}
             <button class="pj-v ${on(p.nginx_enabled)}" onclick="pmToggle(${p.id},'nginxEnabled',${!!p.nginx_enabled})" title="nginx 映射开关">nginx ${p.nginx_enabled ? '开' : '关'}</button>
@@ -113,6 +126,32 @@ function portRowHtml(p) {
         </div>
         <div class="pj-sub2">${p.repo_path ? escHtml(p.repo_path) : '<span class="pm-dim">无仓库（成品软件/服务）</span>'}</div>
         ${p.note ? `<div class="pj-note">${escHtml(p.note)}</div>` : ''}
+    </div>`;
+}
+
+function projectFormHtml() {
+    return `<div class="pj-editor pm-form pm-form-wide">
+        <div class="pm-form-title">新建项目（默认同时建仓 + 注册端口；可取消其中一项）</div>
+        <div class="pm-form-grid">
+            <label>名称<input id="pmProjectName" placeholder="例如 zfoo" oninput="pmSlugSync(this.value,'project')"></label>
+            <label>slug<input id="pmProjectSlug" placeholder="自动" oninput="this.dataset.auto='0'"></label>
+            <label>类型<select id="pmProjectKind">
+                <option value="project">项目</option><option value="repo">仓库</option>
+                <option value="service">服务</option><option value="software">成品软件</option><option value="infra">基建</option>
+            </select></label>
+            <label>上游端口<input id="pmProjectUp" type="number" placeholder="留空自动 127xx；可填已有端口如 8188"></label>
+            <label>对外端口<input id="pmProjectExt" type="number" placeholder="留空自动 181xx"></label>
+        </div>
+        <div class="pm-checks">
+            <label><input type="checkbox" id="pmProjectRepo" checked> 建本地仓库 + 双远端</label>
+            <label><input type="checkbox" id="pmProjectPorts" checked> 注册端口映射</label>
+            <label><input type="checkbox" id="pmProjectNginx" checked> 启用 nginx</label>
+            <label><input type="checkbox" id="pmProjectWeb" checked> 挂到主页</label>
+        </div>
+        <div class="pj-actions">
+            <button class="vb" onclick="pmCreateProject()">创建并注册</button>
+            <button class="vb" onclick="pmHideForms()">取消</button>
+        </div>
     </div>`;
 }
 
@@ -181,6 +220,8 @@ function drawPm() {
     const disabled = writeAuth == null;
     const repos = d.projects.filter(p => p.repo_path);
     const ports = d.projects.filter(p => p.upstream_port != null || p.external_port != null);
+    const listeningCount = ports.filter(p => p.upstreamListening).length;
+    const forwardCount = ports.filter(p => p.nginxState === 'forwarding' || p.nginxState === 'manual').length;
 
     screen.innerHTML = `<div class="pm-app">
         <header class="agg-top">
@@ -190,10 +231,12 @@ function drawPm() {
             ${applyBadge(d.apply)}
             <button class="vb" onclick="pmSync()" title="刷新所有仓库的 git 状态">同步 git</button>
             <button class="vb" onclick="pmApply()">重新应用 nginx</button>
+            <button class="vb" onclick="pmNewProject()">+ 新建项目</button>
         </header>
         ${pmState.notice ? `<div class="pm-notice">${escHtml(pmState.notice)}</div>` : ''}
         ${disabled ? '<div class="pm-warn">写操作未启用：请在 agg.env 配置 <code>PM_TOKEN</code>（或启用全局 AUTH_TOKEN）后重启。</div>' : ''}
         ${writeAuth === 'pm_token' && !pmState.token ? '<div class="pm-warn">首次写操作会提示输入 PM 口令（PM_TOKEN）。</div>' : ''}
+        ${pmState.showProjectForm ? projectFormHtml() : ''}
 
         <div class="pm-cols">
             <section class="pm-col">
@@ -210,14 +253,14 @@ function drawPm() {
 
             <section class="pm-col">
                 <div class="pm-col-hd">
-                    <h2>🔌 端口管理</h2><span class="pm-col-cnt">${ports.length}</span>
+                    <h2>🔌 端口映射注册表</h2><span class="pm-col-cnt">${ports.length} 条 · ${listeningCount} 监听 · ${forwardCount} 转发</span>
                     <span class="pm-col-actions">
                         <button class="vb" onclick="pmScan('ports')">扫描运行服务</button>
-                        <button class="vb" onclick="pmNewPort()">+ 端口</button>
+                        <button class="vb" onclick="pmNewPort()">+ 注册端口</button>
                     </span>
                 </div>
                 ${pmState.showPortForm ? portFormHtml() : ''}
-                <div class="pm-list">${ports.length ? ports.map(portRowHtml).join('') : '<div class="pm-empty">还没有端口映射。点「扫描运行服务」或「+ 端口」。</div>'}</div>
+                <div class="pm-list">${ports.length ? ports.map(portRowHtml).join('') : '<div class="pm-empty">注册表为空。点「扫描运行服务」或「+ 注册端口」。</div>'}</div>
             </section>
         </div>
 
@@ -226,7 +269,7 @@ function drawPm() {
 }
 
 function pmSlugSync(name, which) {
-    const el = document.getElementById(which === 'repo' ? 'pmRepoSlug' : 'pmPortSlug');
+    const el = document.getElementById(which === 'repo' ? 'pmRepoSlug' : which === 'port' ? 'pmPortSlug' : 'pmProjectSlug');
     if (!el || el.dataset.auto === '0') return;
     el.value = String(name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
@@ -265,6 +308,7 @@ async function renderPmApp(container) {
 function pmHideForms() {
     pmState.showRepoForm = false;
     pmState.showPortForm = false;
+    pmState.showProjectForm = false;
     pmState.portTarget = null;
     drawPm();
 }
@@ -272,6 +316,7 @@ function pmHideForms() {
 function pmNewRepo() {
     pmState.showRepoForm = true;
     pmState.showPortForm = false;
+    pmState.showProjectForm = false;
     pmState.portTarget = null;
     pmState.notice = '';
     drawPm();
@@ -280,6 +325,7 @@ function pmNewRepo() {
 function pmNewPort() {
     pmState.showPortForm = true;
     pmState.showRepoForm = false;
+    pmState.showProjectForm = false;
     pmState.portTarget = null;
     pmState.notice = '';
     drawPm();
@@ -288,9 +334,54 @@ function pmNewPort() {
 function pmAddPort(id) {
     pmState.showPortForm = true;
     pmState.showRepoForm = false;
+    pmState.showProjectForm = false;
     pmState.portTarget = id;
     pmState.notice = '';
     drawPm();
+}
+
+function pmNewProject() {
+    pmState.showProjectForm = true;
+    pmState.showRepoForm = false;
+    pmState.showPortForm = false;
+    pmState.portTarget = null;
+    pmState.notice = '';
+    drawPm();
+}
+
+async function pmCreateProject() {
+    if (pmState.busy) return;
+    const name = document.getElementById('pmProjectName')?.value.trim();
+    const slug = document.getElementById('pmProjectSlug')?.value.trim();
+    const kind = document.getElementById('pmProjectKind')?.value || 'project';
+    const up = document.getElementById('pmProjectUp')?.value;
+    const ext = document.getElementById('pmProjectExt')?.value;
+    const createRepo = document.getElementById('pmProjectRepo')?.checked;
+    const managePorts = document.getElementById('pmProjectPorts')?.checked;
+    const nginxEnabled = document.getElementById('pmProjectNginx')?.checked;
+    const webEnabled = document.getElementById('pmProjectWeb')?.checked;
+    if (!name) { alert('请填写项目名'); return; }
+    if (!createRepo && !managePorts) { alert('至少选择「建仓库」或「注册端口」之一'); return; }
+
+    pmState.busy = true;
+    try {
+        const res = await pmWrite('', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name, slug: slug || undefined, kind,
+                upstreamPort: up || undefined, externalPort: ext || undefined,
+                createRepo, managePorts, nginxEnabled, webEnabled,
+            }),
+        });
+        const data = await res.json();
+        pmState.showProjectForm = false;
+        pmState.notice = `已注册 ${data.project.slug}${data.project.external_port ? `：127.0.0.1:${data.project.upstream_port} ↳ ${data.project.external_port}` : ''}`;
+        await pmReload();
+        pmReloadSoon();
+    } catch (e) {
+        alert('创建项目失败: ' + e.message);
+    } finally { pmState.busy = false; }
 }
 
 async function pmCreateRepo() {
@@ -443,6 +534,6 @@ async function pmApply() {
 registerApp('pm', { render: renderPmApp });
 
 Object.assign(window, {
-    pmNewRepo, pmNewPort, pmAddPort, pmHideForms, pmCreateRepo, pmCreatePort,
+    pmNewProject, pmCreateProject, pmNewRepo, pmNewPort, pmAddPort, pmHideForms, pmCreateRepo, pmCreatePort,
     pmToggle, pmRemoveRepo, pmRemovePorts, pmScan, pmSync, pmApply, pmReload, pmSlugSync,
 });

@@ -9,7 +9,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（28 用例，内存库）
+npm test           # node --test（29 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -88,7 +88,9 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 
 ## 项目管理器（PM）
 - **台账已取消**；`zproject` 由迁移 v6 删除，所有项目管理集中到 `managed_project`（schema v6）
-- 前端左右分栏：左「仓库管理」/ 右「端口管理」；同一行可同时出现在两边
+- 前端左右分栏：左「仓库管理」/ 右「端口映射注册表」；同一行可同时出现在两边
+- 注册表状态：`upstreamListening` → 行绿框；`nginxState = forwarding|manual` → 绿灯；pending 黄、conflict 红、off 灰
+- `nginxState` 通过解析活动 nginx conf 的 `listen ↔ proxy_pass` 得出（`activeMappings()`），不只看 DB 开关
 - 一个条目可独立拥有：仓库（`repo_path`）、端口映射（`upstream_port → external_port`）、或两者
   - 例：ComfyUI = 仓库 + 8188→18130；MinIO = 只有端口；普通新项目 = 两者
 - 端口：上游自动分配 `12710–12799`；成品软件可显式用已有端口（如 8188）；对外自动 `18130–18189`
@@ -96,6 +98,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 仓库：`src/pm/repo.js`，新建到 `/home/tony/zrepo/<slug>`，`git init -b main` + 初始提交；
   origin fetch GitHub，pushurl GitHub+Gitee；扫描已有仓库用 `repo_created=0`
 - 扫描：`POST /api/pm/scan?what=repos|ports|all`（或 `npm run pm:scan`）：左栏只扫仓库、右栏只扫已知服务/成品软件
+- 新建：顶部「+ 新建项目」默认建仓+注册端口；左/右栏也可单独新建
   - 已有手工 nginx 映射的服务（18110/18104/18101/18102/18120）以 `nginx_enabled=0` 登记，避免重复 listen
 - git：`POST /api/pm/sync` 刷新 last_commit/dirty/ahead/synced_at（并发 3）
 - nginx：app 写 `PM_STATE_DIR/pm-nginx.conf`；root 的 `zdashboard-nginx-apply.path` 校验端口段、`nginx -t`、reload，失败回滚

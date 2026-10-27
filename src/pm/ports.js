@@ -60,6 +60,57 @@ export function externalInOtherConf(port) {
   return nginxPorts({ excludeManaged: true }).has(Number(port));
 }
 
+// 当前 nginx 里实际生效的 对外端口 → 上游端口 映射（含手工 conf 和 PM 生成 conf）
+let _mapCache = { key: '', map: new Map() };
+
+export function activeMappings() {
+  const files = confFiles();
+  const key = files.map(f => {
+    try { return `${f}:${statSync(f).mtimeMs}`; } catch { return f; }
+  }).join('|');
+  if (key === _mapCache.key) return _mapCache.map;
+
+  const map = new Map();
+  for (const file of files) {
+    let text = '';
+    try { text = readFileSync(file, 'utf8'); } catch { continue; }
+    let inServer = false;
+    let depth = 0;
+    let listen = null;
+    let upstream = null;
+    for (const raw of text.split('\n')) {
+      const line = raw.replace(/#.*$/, '');
+      if (!inServer) {
+        if (/^\s*server\s*\{/.test(line)) {
+          inServer = true;
+          depth = (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+          listen = null;
+          upstream = null;
+        }
+        continue;
+      }
+      depth += (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+      if (listen == null) {
+        const m = line.match(/^\s*listen\s+(?:\[[^\]]*\]:)?(?:[\d.]+:)?(\d{2,5})/);
+        if (m) listen = Number(m[1]);
+      }
+      if (upstream == null) {
+        const m = line.match(/proxy_pass\s+https?:\/\/(?:127\.0\.0\.1|localhost):(\d{2,5})/);
+        if (m) upstream = Number(m[1]);
+      }
+      if (depth <= 0) {
+        if (listen != null && upstream != null) map.set(listen, upstream);
+        inServer = false;
+        listen = null;
+        upstream = null;
+        depth = 0;
+      }
+    }
+  }
+  _mapCache = { key, map };
+  return map;
+}
+
 export function navPorts() {
   const ports = new Set();
   try {

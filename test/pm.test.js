@@ -15,7 +15,7 @@ process.env.PM_GITHUB_BASE = 'git@github.com:Test';
 process.env.PM_GITEE_BASE = 'git@gitee.com:Test';
 
 const { slugify, validateSlug, createRepo, repoInfo } = await import('../src/pm/repo.js');
-const { allocatePorts } = await import('../src/pm/ports.js');
+const { allocatePorts, activeMappings } = await import('../src/pm/ports.js');
 const { writeManagedState, renderManagedConf, readApplyStatus } = await import('../src/pm/nginx.js');
 const store = await import('../src/pm/store.js');
 
@@ -39,6 +39,18 @@ test('端口分配：跳过已占用的 12710/18130', async () => {
   // 显式上游 9999 允许（附着已有服务的场景）
   const attached = await allocatePorts({ upstreamPort: 9999 });
   assert.equal(attached.upstreamPort, 9999);
+});
+
+test('activeMappings 解析 nginx server 的 对外→上游', () => {
+  writeFileSync(join(TMP, 'nginx', 'conf.d', 'live.conf'), `
+server {
+    listen 18139 ssl;
+    listen [::]:18139 ssl;
+    location / { proxy_pass http://127.0.0.1:12719; }
+}
+`);
+  const map = activeMappings();
+  assert.equal(map.get(18139), 12719);
 });
 
 test('建仓 + 双远端 + 初始提交', async () => {
