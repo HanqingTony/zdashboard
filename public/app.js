@@ -2,12 +2,11 @@
 import './vocab.js';
 import './nav.js';
 import './agg.js';
-import './projects.js';
 import './pm.js';
 
-import { startApp, setStat, updateAggBadge } from './core.js';
+import { startApp, setStat, updateAggBadge, apiFetch } from './core.js';
 import { aggFetch, startAggPoll } from './agg.js';
-import { pjApi, applyProjectsData } from './projects.js';
+import { applyPmData } from './pm.js';
 
 startApp();
 startAggPoll();
@@ -18,4 +17,4 @@ fetch('/api/health')
     .then(h => setStat('Ver', 'v' + h.version))
     .catch(() => {});
 aggFetch(false).then(d => updateAggBadge(d.totalNew || 0)).catch(() => {});
-pjApi('').then(applyProjectsData).catch(() => {});
+apiFetch('/api/pm').then(r => r.json()).then(applyPmData).catch(() => {});

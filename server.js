@@ -22,7 +22,7 @@ server.listen(PORT, HOST, () => {
   console.log(`[zdashboard] 写保护: ${AUTH_TOKEN ? '已启用（X-ZToken）' : '未启用（仅建议内网使用）'}`);
   console.log('[zdashboard] 英语学习: /api/articles, /api/words, /api/vocab/stats');
   console.log('[zdashboard] 信息聚合: GET /api/agg, POST /api/agg/refresh|open');
-  console.log('[zdashboard] 项目台账: GET /api/projects, POST /api/projects/import|sync');
+  console.log('[zdashboard] 项目管理器: GET /api/pm, POST /api/pm/scan|sync');
 });
 
 let closing = false;

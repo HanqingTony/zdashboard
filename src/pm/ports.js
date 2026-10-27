@@ -1,7 +1,10 @@
 // src/pm/ports.js — 端口扫描与分配
 //
-// 上游：127xx（默认 12710-12799，回环）
-// 对外：181xx（默认 18130-18189，nginx）
+// 两种端口概念：
+//   upstream：回环服务端口。新项目默认自动分配 12710-12799；
+//             成品软件（ComfyUI 8188 等）可直接用显式端口附着。
+//   external：nginx 对外入口，默认自动分配 18130-18189。
+//
 // 来源：managed_project + ss 监听 + 活动 nginx conf（conf.d/*.conf + sites-enabled）+ nav.json
 
 import { execFile } from 'child_process';
@@ -15,6 +18,8 @@ import {
 } from '../config.js';
 
 const execFileP = promisify(execFile);
+export const EXTERNAL_HARD_MIN = 18100;
+export const EXTERNAL_HARD_MAX = 18199;
 
 function confFiles() {
   const out = [];
@@ -34,9 +39,10 @@ function confFiles() {
 }
 
 /** 解析 nginx 的 listen / proxy_pass 端口（只用于防冲突） */
-export function nginxPorts() {
+export function nginxPorts({ excludeManaged = false } = {}) {
   const ports = new Set();
   for (const file of confFiles()) {
+    if (excludeManaged && file.endsWith('/zdashboard-projects.conf')) continue;
     let text = '';
     try { text = readFileSync(file, 'utf8'); } catch { continue; }
     for (const m of text.matchAll(/\blisten\s+(?:\[[^\]]*\]:)?(?:[\d.]+:)?(\d{2,5})\b/g)) {
@@ -47,6 +53,11 @@ export function nginxPorts() {
     }
   }
   return ports;
+}
+
+/** 某个 external 端口是否已被「非 PM 管理」的 nginx 配置占用（用于阻止重复 listen） */
+export function externalInOtherConf(port) {
+  return nginxPorts({ excludeManaged: true }).has(Number(port));
 }
 
 export function navPorts() {
@@ -67,13 +78,13 @@ export function navPorts() {
 export function dbPorts() {
   const ports = new Set();
   for (const r of db.prepare('SELECT upstream_port, external_port FROM managed_project').all()) {
-    ports.add(r.upstream_port);
-    ports.add(r.external_port);
+    if (r.upstream_port != null) ports.add(r.upstream_port);
+    if (r.external_port != null) ports.add(r.external_port);
   }
   return ports;
 }
 
-/** ss 的监听端口（127xx/181xx 只关心本机 bind） */
+/** ss 的监听端口 */
 export async function listeningPorts() {
   const ports = new Set();
   try {
@@ -86,9 +97,6 @@ export async function listeningPorts() {
   return ports;
 }
 
-function inRange(p, min, max) { return p >= min && p <= max; }
-
-/** 所有已占用端口（含监听、nginx、nav、DB） */
 export async function usedPorts() {
   const sets = [nginxPorts(), navPorts(), dbPorts(), await listeningPorts()];
   const out = new Set();
@@ -97,43 +105,63 @@ export async function usedPorts() {
 }
 
 export function validatePorts({ upstreamPort, externalPort }) {
-  if (!inRange(upstreamPort, PM_UPSTREAM_MIN, PM_UPSTREAM_MAX)) {
-    throw new Error(`上游端口须在 ${PM_UPSTREAM_MIN}-${PM_UPSTREAM_MAX}`);
+  if (!Number.isInteger(upstreamPort) || upstreamPort < 1 || upstreamPort > 65535) {
+    throw new Error('上游端口须为 1-65535');
   }
-  if (!inRange(externalPort, PM_EXTERNAL_MIN, PM_EXTERNAL_MAX)) {
-    throw new Error(`对外端口须在 ${PM_EXTERNAL_MIN}-${PM_EXTERNAL_MAX}`);
+  if (!Number.isInteger(externalPort) || externalPort < EXTERNAL_HARD_MIN || externalPort > EXTERNAL_HARD_MAX) {
+    throw new Error(`对外端口须在 ${EXTERNAL_HARD_MIN}-${EXTERNAL_HARD_MAX}`);
   }
 }
 
 /**
- * 分配端口。用户显式给端口时校验是否空闲；否则挑区间内最小空闲。
- * @param {{upstreamPort?:number, externalPort?:number, excludeId?:number}} opts
+ * 分配/校验端口。
+ * - 显式 upstream：允许是已有服务的监听端口（附着成品软件）
+ * - 自动 upstream：仅从 12710-12799 取空闲
+ * - 显式 external：仅校验 DB 内唯一 + 硬范围；是否与其它 nginx conf 冲突由启用开关时再查
+ * - 自动 external：从 18130-18189 取空闲（ss/nginx/nav/db 全避让）
  */
-export async function allocatePorts({ upstreamPort, externalPort, excludeId } = {}) {
+export async function allocatePorts({ upstreamPort, externalPort, excludeId, allowExternalUsed = false } = {}) {
   const used = await usedPorts();
   if (excludeId) {
     const row = db.prepare('SELECT upstream_port, external_port FROM managed_project WHERE id = ?').get(excludeId);
-    if (row) { used.delete(row.upstream_port); used.delete(row.external_port); }
+    if (row) {
+      if (row.upstream_port != null) used.delete(row.upstream_port);
+      if (row.external_port != null) used.delete(row.external_port);
+    }
   }
 
-  const pick = (want, min, max, label) => {
-    if (want != null && want !== '') {
-      const p = Number(want);
-      if (!Number.isInteger(p) || !inRange(p, min, max)) throw new Error(`${label}须在 ${min}-${max}`);
-      if (used.has(p)) throw new Error(`${label} ${p} 已被占用`);
-      used.add(p);
-      return p;
+  let up;
+  if (upstreamPort != null && upstreamPort !== '') {
+    up = Number(upstreamPort);
+    if (!Number.isInteger(up) || up < 1 || up > 65535) throw new Error('上游端口须为 1-65535');
+    const clash = db.prepare('SELECT id FROM managed_project WHERE upstream_port = ? AND id IS NOT ?').get(up, excludeId ?? -1);
+    if (clash) throw new Error(`上游端口 ${up} 已被其它托管条目使用`);
+  } else {
+    up = null;
+    for (let p = PM_UPSTREAM_MIN; p <= PM_UPSTREAM_MAX; p++) {
+      if (!used.has(p)) { up = p; used.add(p); break; }
     }
-    for (let p = min; p <= max; p++) {
-      if (!used.has(p)) { used.add(p); return p; }
-    }
-    throw new Error(`${label}段 ${min}-${max} 已无空闲端口`);
-  };
+    if (up == null) throw new Error(`上游端口段 ${PM_UPSTREAM_MIN}-${PM_UPSTREAM_MAX} 已无空闲`);
+  }
 
-  return {
-    upstreamPort: pick(upstreamPort, PM_UPSTREAM_MIN, PM_UPSTREAM_MAX, '上游端口'),
-    externalPort: pick(externalPort, PM_EXTERNAL_MIN, PM_EXTERNAL_MAX, '对外端口'),
-  };
+  let ext;
+  if (externalPort != null && externalPort !== '') {
+    ext = Number(externalPort);
+    if (!Number.isInteger(ext) || ext < EXTERNAL_HARD_MIN || ext > EXTERNAL_HARD_MAX) {
+      throw new Error(`对外端口须在 ${EXTERNAL_HARD_MIN}-${EXTERNAL_HARD_MAX}`);
+    }
+    const clash = db.prepare('SELECT id FROM managed_project WHERE external_port = ? AND id IS NOT ?').get(ext, excludeId ?? -1);
+    if (clash) throw new Error(`对外端口 ${ext} 已被其它托管条目使用`);
+    if (!allowExternalUsed && used.has(ext)) throw new Error(`对外端口 ${ext} 已被占用`);
+  } else {
+    ext = null;
+    for (let p = PM_EXTERNAL_MIN; p <= PM_EXTERNAL_MAX; p++) {
+      if (!used.has(p)) { ext = p; used.add(p); break; }
+    }
+    if (ext == null) throw new Error(`对外端口段 ${PM_EXTERNAL_MIN}-${PM_EXTERNAL_MAX} 已无空闲`);
+  }
+
+  return { upstreamPort: up, externalPort: ext };
 }
 
 export { PM_UPSTREAM_MIN, PM_UPSTREAM_MAX, PM_EXTERNAL_MIN, PM_EXTERNAL_MAX };

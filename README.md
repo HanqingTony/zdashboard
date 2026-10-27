@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.3.0** · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.4.0** · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -49,30 +49,19 @@
 
 凭据只放 `/home/tony/zdata/zdashboard/agg.env`（600，不进仓库）；systemd 单元用 `EnvironmentFile=-` 读取。
 
-### 项目台账
-
-Tools 里的 **📋 项目台账**：zpa 清单落进 `zdb.db`，在面板里看/改/跟踪。
-
-- **事实源 = zpa 仓库清单**（`PROJECTS.md` / `IDEAS-RANKING.md` / `PORTFOLIO.md`）
-- 「从清单导入」**在进程内解析**（`buildSeed()`），不再 spawn 子进程、不再重写仓库里的 `seed.json`；zpa 不可用时自动回退到 `seed.json`
-- 按 `name` 幂等 upsert；**不覆盖**操作字段：状态 / 层 / 下一步 / 备注 / 风险 / 想法判决
-- 表格列数不足会带**文件名+行号**报错，不再静默写入 `undefined`
-- 「同步 git」改为**异步 + 并发 4**，每仓库只用 3 次 git 调用（原来 7 次同步调用会阻塞事件循环）
-- 想法带 F/C/I 评分与 A/B/C/D 档 + 判决按钮（活/搁/死）；Tools 角标 = 待判想法数
-- 写接口有枚举校验（status/layer/verdict、F/C/I 1–5），防止状态空间漂移
-- 存储用稳定 code（`active` / `on_demand` / `l0` …），展示映射集中在前端/后端共用的 `public/projects-meta.js`；旧 emoji/中文值会被自动归一化
-- 侧栏项目列表来自真实台账（不再是静态占位）
-
 ### 项目管理器
 
 Tools 里的 **🛠 项目管理器**：把「新建项目」从建仓、配双远端、找端口、改 nginx、加主页这一串收进一个页面。
 
-- **端口**：默认上游 `12710–12799`、对外 `18130–18189`；自动跳过 `ss` 监听、活动 nginx conf、`nav.json`、`managed_project` 已用端口，也可手填
-- **建仓**：`/home/tony/zrepo/<slug>`，`git init -b main` + README + 初始提交
-- **双远端**：`origin` fetch GitHub，pushurl 配 GitHub + Gitee（`git push origin main` 双推）；远端仓库需先在平台创建，管理器只配 URL
+- **仓库和端口是两个独立功能**：可以只有仓库、只有端口，或两者都有（ComfyUI = 仓库 + 8188→181xx；MinIO = 只有端口）
+- **端口**：自动上游 `12710–12799`、对外 `18130–18189`；成品软件可直接填已有端口（如 8188）；自动跳过 `ss` 监听、活动 nginx conf、`nav.json`、数据库已用端口
+- **建仓/附着仓库**：新建仓库在 `/home/tony/zrepo/<slug>`；「扫描本机」会把已有仓库以 `repo_created=0` 导入
+- **双远端**：`origin` fetch GitHub，pushurl 配 GitHub + Gitee；远端仓库需先在平台创建
+- **扫描**：`扫描本机` / `npm run pm:scan` 导入本机仓库 + 已知运行服务（ComfyUI/dsh/comfy-web/MinIO/searxng/zres）；已有手工映射的服务只登记、不重复 listen
+- **同步 git**：刷新 last commit / 脏文件 / 未推送 / 双远端
 - **nginx**：启用后由 root 的 `zdashboard-nginx-apply.path/service` 校验并安装 `/etc/nginx/conf.d/zdashboard-projects.conf`，`nginx -t` 失败自动回滚
-- **主页挂载**：`GET /api/nav` 合并静态黄页与托管项目，在「我的项目」分组显示；关掉主页开关即消失
-- **开关**：nginx / 主页独立；删除只删管理记录，仓库保留
+- **主页挂载**：`GET /api/nav` 合并静态黄页与托管项目；**左上「当前项目」**也来自 PM
+- **开关**：nginx / 主页 / 置顶独立；删除只删管理记录，仓库保留
 - **安全**：写操作需要 `PM_TOKEN`（`X-PM-Token`）或全局 `AUTH_TOKEN`；未配置时写接口 403，只读可用
 - 上游未监听时映射仍可打开，但会 502；管理器不启动项目进程
 
@@ -108,17 +97,13 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | GET | `/api/agg` | 聚合快照（缓存 + 未读数 + stale） |
 | POST | `/api/agg/refresh` | `?source=<id>` 刷一个；不带则刷过期源；`?force=1` 强制全部 |
 | POST | `/api/agg/open` | `{all:true}` 或 `{source:"<id>"}` 标记已读水位 |
-| GET | `/api/projects` | 台账列表（`kind/board/layer/status/grade/verdict/q`）+ 统计 |
-| POST | `/api/projects` | 新建 |
-| PATCH | `/api/projects/:id` | 修改（枚举/评分校验） |
-| DELETE | `/api/projects/:id` | 删除 |
-| POST | `/api/projects/import` | 从 zpa 清单导入（`?regen=0` 用 seed.json） |
-| POST | `/api/projects/sync` | 异步刷新 git 派生字段 |
 | GET | `/api/pm` | 项目管理器列表 + nginx 应用状态 |
 | POST | `/api/pm` | 新建：分配端口/建仓/双远端（写保护） |
 | PATCH | `/api/pm/:id` | nginx/主页开关、名称、端口（写保护） |
 | DELETE | `/api/pm/:id` | 删除管理记录（仓库保留，写保护） |
 | POST | `/api/pm/apply` | 重新写 nginx 期望状态（写保护） |
+| POST | `/api/pm/scan` | 扫描本机仓库/运行服务并补建条目（写保护） |
+| POST | `/api/pm/sync` | 刷新 git 派生字段（写保护） |
 | GET | `/api/nav` | 黄页 + 托管项目（主页用） |
 
 所有错误（含坏 JSON、未知 API）统一返回 JSON：`{ "error": "..." }`。
@@ -132,7 +117,6 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | `DB_PATH` | `./zdb.db` | SQLite 路径（生产：`/home/tony/zdata/zdb.db`） |
 | `CHECKPOINT` | `throttle` | WAL 策略：`always`（每次写）/ `throttle`（500ms 合并）/ `off`；容器用 `always` |
 | `AUTH_TOKEN` | 空 | 设置后除 `/api/health` 外的 `/api/*` 需要 `X-ZToken` 或 `Authorization: Bearer` |
-| `ZPA_DIR` | `/home/tony/zrepo/zpa` | 项目清单所在仓库 |
 | `ZREPO_DIR` | `/home/tony/zrepo` | 仓库根目录（猜 `repo_path`） |
 | `PM_TOKEN` | 空 | 项目管理器写操作口令（`X-PM-Token`）；未配置且未启用 `AUTH_TOKEN` 时写接口 403 |
 | `PM_UPSTREAM_MIN/MAX` | `12710` / `12799` | 新建项目分配的上游端口段 |
@@ -255,11 +239,11 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；31 个用例）
+npm test           # node:test（内存库，不碰生产数据；26 个用例）
 npm run backup     # SQLite 在线备份
-npm run archive-legacy            # 只归档历史表（zInfra/zObjects）
+npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除
-npm run seed       # 仅手动重新生成 src/projects/seed.json
+npm run pm:scan    # 扫描本机仓库/运行服务，补建项目管理器条目
 ```
 
 ## 目录结构
@@ -278,15 +262,13 @@ zdashboard/
 │   ├── agg/
 │   │   ├── sources.js      # 各源探针
 │   │   └── store.js        # 落库 / 未读水位 / 退避 / 保留策略
-│   ├── projects/
-│   │   ├── fromMarkdown.js # zpa 清单 → seed（可在进程内调用）
-│   │   └── store.js        # zproject 表 + 校验 + 批量写
 │   ├── pm/
 │   │   ├── ports.js        # 端口扫描/分配
 │   │   ├── repo.js         # 建仓 + 双远端
+│   │   ├── scan.js         # 扫描本机仓库/服务
 │   │   ├── nginx.js        # nginx 期望状态
 │   │   └── store.js        # managed_project
-│   └── routes/             # articles / vocab / agg / projects / pm
+│   └── routes/             # articles / vocab / agg / pm
 ├── public/
 │   ├── index.html          # 单页骨架（资产带 ?v=<版本>）
 │   ├── app.js              # 启动入口（注册应用 + 角标）
@@ -294,16 +276,15 @@ zdashboard/
 │   ├── vocab.js            # 英语学习模块
 │   ├── nav.js              # 服务导航模块
 │   ├── agg.js              # 信息聚合模块
-│   ├── projects.js         # 项目台账模块
 │   ├── pm.js               # 项目管理器模块
 │   ├── tokenize.js         # 前后端共用分词器
-│   ├── projects-meta.js    # 前后端共用台账枚举
 │   ├── nav.json            # 黄页数据源
 │   └── style.css
 ├── scripts/
 │   ├── backup.js           # SQLite 在线备份
-│   └── archive-legacy.js   # 历史表归档/删除
-├── test/                   # node:test（tokenize / agg / projects / pm / api / auth / rate-limit / migrations）
+│   ├── archive-legacy.js   # 历史表归档/删除
+│   └── scan-projects.js    # 扫描本机仓库/服务
+├── test/                   # node:test（tokenize / agg / pm / api / auth / rate-limit / migrations）
 ├── deploy/                 # Dockerfile / compose / systemd 单元 /
 │                           # nginx apply script + path/service / build_run.sh / c2r.sh
 ├── .github/workflows/      # CI：npm ci + npm test

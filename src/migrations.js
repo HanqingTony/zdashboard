@@ -3,9 +3,18 @@
 // 约束：
 // - 每个迁移必须幂等或只在版本号低于自身时执行；
 // - 老库（user_version=0）会依次跑 1..N（建表用 IF NOT EXISTS、补列用 ensureColumn）；
-// - 破坏性操作（删表）不放在这里，见 scripts/archive-legacy.js。
+// - 破坏性操作原则上先归档（scripts/archive-legacy.js）；v6 删除已废弃的 zproject 是显式产品决策。
 
-import { LEGACY_STATUS, LEGACY_LAYER } from '../public/projects-meta.js';
+// v0.2.1 及更早 zproject 的 emoji/中文值 → code（历史迁移用；台账已在 v0.4.0 移除）
+const LEGACY_STATUS = {
+  '🟢活跃': 'active', '🟡按需': 'on_demand', '🔵完成待维护': 'maintenance',
+  '⚪暂停': 'paused', '🔴欠账': 'debt', '🧩上游': 'upstream',
+  '📦归档': 'archived', '💭想法': 'idea',
+};
+const LEGACY_LAYER = {
+  'L0 在做': 'l0', 'L1 活跃': 'l1', 'L2 按需': 'l2', 'L3 想法': 'l3', 'L4 归档': 'l4',
+  L0: 'l0', L1: 'l1', L2: 'l2', L3: 'l3', L4: 'l4',
+};
 
 function ensureColumn(db, table, col, ddl) {
   const has = db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === col);
@@ -116,7 +125,7 @@ export const MIGRATIONS = [
           name                TEXT NOT NULL UNIQUE,
           kind                TEXT,
           board               TEXT,
-          layer               TEXT,     -- l0..l4（展示映射见 public/projects-meta.js）
+          layer               TEXT,     -- l0..l4（历史台账）
           status              TEXT,     -- active / on_demand / ...（code）
           feasibility         INTEGER,
           completeness        INTEGER,
@@ -177,6 +186,53 @@ export const MIGRATIONS = [
         )
       `);
       db.exec('CREATE INDEX IF NOT EXISTS idx_mp_web ON managed_project (web_enabled, nginx_enabled)');
+    },
+  },
+  {
+    version: 6,
+    name: 'pm-v2-and-remove-ledger',
+    up(db) {
+      // 台账（zproject）功能取消；PM 同时管理「仓库」与「端口映射」，两者都可为空。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS managed_project_v2 (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          slug          TEXT NOT NULL UNIQUE,
+          name          TEXT NOT NULL,
+          kind          TEXT DEFAULT 'project',   -- repo | service | software | infra | project
+          repo_path     TEXT,
+          repo_created  INTEGER NOT NULL DEFAULT 0,
+          dual_remote   INTEGER NOT NULL DEFAULT 1,
+          upstream_port INTEGER UNIQUE,           -- 可空；127xx 或已有服务端口（如 8188）
+          external_port INTEGER UNIQUE,           -- 可空；181xx
+          nginx_enabled INTEGER NOT NULL DEFAULT 0,
+          web_enabled   INTEGER NOT NULL DEFAULT 0,
+          pinned        INTEGER NOT NULL DEFAULT 0,
+          source        TEXT,                      -- manual | scan:repo | scan:service
+          note          TEXT,
+          last_commit_at      TEXT,
+          last_commit_subject TEXT,
+          dirty         INTEGER,
+          ahead         INTEGER,
+          synced_at     TEXT,
+          created_at    TEXT NOT NULL,
+          updated_at    TEXT NOT NULL
+        )
+      `);
+      db.exec(`
+        INSERT OR IGNORE INTO managed_project_v2
+          (id, slug, name, repo_path, upstream_port, external_port, nginx_enabled,
+           web_enabled, repo_created, dual_remote, created_at, updated_at)
+        SELECT id, slug, name, repo_path, upstream_port, external_port, nginx_enabled,
+               web_enabled, repo_created, dual_remote, created_at, updated_at
+          FROM managed_project
+      `);
+      db.exec('DROP TABLE managed_project');
+      db.exec('ALTER TABLE managed_project_v2 RENAME TO managed_project');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_mp_repo ON managed_project (repo_path)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_mp_web ON managed_project (web_enabled, nginx_enabled)');
+
+      // 台账数据不再使用（如需归档，部署前跑 scripts/archive-legacy.js --drop）
+      db.exec('DROP TABLE IF EXISTS zproject');
     },
   },
 ];

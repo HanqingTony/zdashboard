@@ -1,45 +1,56 @@
-// 迁移框架：版本号、老数据映射、幂等
+// 迁移框架：最新版本、v6 表结构、v5→v6 数据迁移
 process.env.DB_PATH = ':memory:';
 process.env.CHECKPOINT = 'off';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
 
 const { default: db } = await import('../src/db.js');
 const { migrate, MIGRATIONS } = await import('../src/migrations.js');
 
-test('新库跑到最新 schema 版本，所有表存在', () => {
-  assert.equal(db.pragma('user_version', { simple: true }), MIGRATIONS.at(-1).version);
+const LATEST = MIGRATIONS.at(-1).version;
+
+test('新库跑到最新 schema，台账表已移除', () => {
+  assert.equal(db.pragma('user_version', { simple: true }), LATEST);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
-  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'agg_item', 'agg_state', 'zproject']) {
+  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'agg_item', 'agg_state', 'managed_project']) {
     assert.ok(tables.includes(t), `缺表: ${t}`);
+  }
+  assert.equal(tables.includes('zproject'), false, 'zproject 应已移除');
+  const cols = db.prepare('PRAGMA table_info(managed_project)').all().map(c => c.name);
+  for (const c of ['kind', 'repo_path', 'upstream_port', 'external_port', 'nginx_enabled', 'web_enabled', 'source', 'last_commit_at']) {
+    assert.ok(cols.includes(c), `managed_project 缺列: ${c}`);
   }
 });
 
-test('v3 → v4：旧 status/layer（emoji/中文）映射为 code', () => {
-  db.pragma('user_version = 3');
-  db.prepare("INSERT INTO zproject (name, status, layer) VALUES ('legacy-a', '🟢活跃', 'L0 在做')").run();
-  db.prepare("INSERT INTO zproject (name, status, layer) VALUES ('legacy-b', '💭想法', 'L3 想法')").run();
-  db.prepare("INSERT INTO zproject (name, status, layer) VALUES ('legacy-c', '自定义状态', 'L9')").run();
-
-  migrate(db);
-
-  const row = db.prepare("SELECT status, layer FROM zproject WHERE name = 'legacy-a'").get();
-  assert.equal(row.status, 'active');
-  assert.equal(row.layer, 'l0');
-  const idea = db.prepare("SELECT status, layer FROM zproject WHERE name = 'legacy-b'").get();
-  assert.equal(idea.status, 'idea');
-  assert.equal(idea.layer, 'l3');
-  // 未知值原样保留，不丢数据
-  const unknown = db.prepare("SELECT status, layer FROM zproject WHERE name = 'legacy-c'").get();
-  assert.equal(unknown.status, '自定义状态');
-  assert.equal(unknown.layer, 'L9');
-  assert.equal(db.pragma('user_version', { simple: true }), MIGRATIONS.at(-1).version);
+test('v5 → v6：原 managed_project 行保留，zproject 被删', () => {
+  const t = new Database(':memory:');
+  t.exec(`
+    CREATE TABLE managed_project (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, name TEXT,
+      repo_path TEXT, upstream_port INTEGER NOT NULL UNIQUE, external_port INTEGER NOT NULL UNIQUE,
+      nginx_enabled INTEGER, web_enabled INTEGER, repo_created INTEGER, dual_remote INTEGER,
+      created_at TEXT, updated_at TEXT
+    );
+    INSERT INTO managed_project (slug,name,repo_path,upstream_port,external_port,nginx_enabled,web_enabled,repo_created,dual_remote,created_at,updated_at)
+      VALUES ('old','Old','/tmp/old',12710,18130,1,1,1,1,'2026-01-01','2026-01-01');
+    CREATE TABLE zproject (id INTEGER PRIMARY KEY, name TEXT);
+    INSERT INTO zproject (name) VALUES ('ledger');
+  `);
+  const v6 = MIGRATIONS.find(m => m.version === 6);
+  v6.up(t);
+  const row = t.prepare("SELECT * FROM managed_project WHERE slug='old'").get();
+  assert.equal(row.name, 'Old');
+  assert.equal(row.upstream_port, 12710);
+  assert.equal(row.external_port, 18130);
+  assert.equal(row.kind, 'project');
+  const tables = t.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+  assert.equal(tables.includes('zproject'), false);
+  t.close();
 });
 
-test('重复 migrate 不报错、不重复改数据', () => {
-  const before = db.prepare("SELECT status, layer FROM zproject WHERE name = 'legacy-a'").get();
+test('重复 migrate 不报错', () => {
   migrate(db);
-  const after = db.prepare("SELECT status, layer FROM zproject WHERE name = 'legacy-a'").get();
-  assert.deepEqual(after, before);
+  assert.equal(db.pragma('user_version', { simple: true }), LATEST);
 });

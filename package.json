@@ -1,7 +1,7 @@
 {
   "name": "zdashboard",
-  "version": "0.3.0",
-  "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目台账 / Vocab",
+  "version": "0.4.0",
+  "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目管理器 / Vocab",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,10 +10,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "seed": "node src/projects/fromMarkdown.js",
     "test": "node --test",
     "backup": "node --env-file-if-exists=.env scripts/backup.js",
-    "archive-legacy": "node --env-file-if-exists=.env scripts/archive-legacy.js"
+    "archive-legacy": "node --env-file-if-exists=.env scripts/archive-legacy.js",
+    "pm:scan": "node --env-file-if-exists=.env scripts/scan-projects.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",

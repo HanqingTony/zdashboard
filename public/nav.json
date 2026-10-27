@@ -9,7 +9,7 @@
         {
           "name": "zDashboard",
           "url": "https://192.168.0.102:18100/",
-          "desc": "本页 · 服务导航 + 信息聚合 + 项目台账 + Vocab",
+          "desc": "本页 · 服务导航 + 信息聚合 + 项目管理器 + Vocab",
           "port": "18100",
           "upstream": "28100"
         },
@@ -92,5 +92,5 @@
       ]
     }
   ],
-  "footer": "项目管理器：12710+ ↳ 18130+（由 zdashboard 生成）· 端口规范：18xxx 对外入口（nginx TLS，唯一入口）· 28xxx 回环上游（末三位配对，应用只绑 127.0.0.1）· 127xx 回环内部入口 · 例外：非 Web 协议端口（MinIO S3 API 9000、代理 10808/12808、smbd 445）与 127xx 入口的上游不迁移。导航内容即 public/nav.json；新增服务三处同步：nginx conf / nav.json / anm facts「nginx」。"
+  "footer": "项目管理器：上游 127xx 或已有端口 → 181xx（由 zdashboard 生成）· 端口规范：18xxx 对外入口（nginx TLS，唯一入口）· 28xxx 回环上游（末三位配对，应用只绑 127.0.0.1）· 127xx 回环内部入口 · 例外：非 Web 协议端口（MinIO S3 API 9000、代理 10808/12808、smbd 445）与 127xx 入口的上游不迁移。导航内容即 public/nav.json；新增服务三处同步：nginx conf / nav.json / anm facts「nginx」。"
 }

@@ -35,7 +35,10 @@ test('端口分配：跳过已占用的 12710/18130', async () => {
   assert.equal(ports.upstreamPort, 12710);
   assert.equal(ports.externalPort, 18131);
   await assert.rejects(() => allocatePorts({ externalPort: 18130 }), /已被占用/);
-  await assert.rejects(() => allocatePorts({ upstreamPort: 9999 }), /须在/);
+  await assert.rejects(() => allocatePorts({ externalPort: 9999 }), /须在/);
+  // 显式上游 9999 允许（附着已有服务的场景）
+  const attached = await allocatePorts({ upstreamPort: 9999 });
+  assert.equal(attached.upstreamPort, 9999);
 });
 
 test('建仓 + 双远端 + 初始提交', async () => {
@@ -55,10 +58,11 @@ test('建仓 + 双远端 + 初始提交', async () => {
 
 test('nginx 期望状态：header、server 数量、关闭后为空', async () => {
   const row = store.create({
-    slug: 'test-project-01', name: 'Test Project 01',
+    slug: 'test-project-01', name: 'Test Project 01', kind: 'repo',
     repo_path: join(process.env.PM_REPO_ROOT, 'test-project-01'),
     upstream_port: 12710, external_port: 18131,
     nginx_enabled: 1, web_enabled: 1, repo_created: 1, dual_remote: 1,
+    source: 'test', note: null, pinned: 0,
   });
   assert.equal(store.list().length, 1);
 

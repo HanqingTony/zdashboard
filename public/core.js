@@ -1,5 +1,4 @@
 // public/core.js — 应用外壳：工具函数、侧栏、应用注册表、布局、状态栏
-import { statusDot } from './projects-meta.js';
 
 // ========== 可选写保护 token ==========
 // 设置 AUTH_TOKEN 后：打开一次 https://host/?token=xxx 即可（存 localStorage 并清掉 URL 参数）
@@ -77,7 +76,6 @@ const spacer = document.getElementById('portSpacer');
 const APPS = [
     { app: 'nav', label: '🧭 服务导航', badge: '18100' },
     { app: 'agg', label: '📡 信息聚合', badgeId: 'badgeAgg' },
-    { app: 'projects', label: '📋 项目台账', badgeId: 'badgePj' },
     { app: 'pm', label: '🛠 项目管理器', badgeId: 'badgePm' },
     { app: 'vocab', label: '📚 Vocab Builder', badgeId: 'badgeVocab' },
     { app: null, label: '✖ Empty' },
@@ -87,16 +85,25 @@ const APPS = [
     { label: '📊 Data Browser' },
 ];
 
-// 侧栏项目列表：来自 /api/projects（不再写死假数据）
-function renderProjectSidebar(items) {
-    const list = (items || []).slice(0, 5);
+// 主界面左上的「当前项目」：来自项目管理器（/api/pm）
+function pmSidebarDot(p) {
+    if (p.nginx_enabled && p.upstreamListening) return 'a';   // 对外在线
+    if (p.nginx_enabled) return 'p';                          // 映射开、上游未监听
+    if (p.repo_path) return 'm';                              // 仅仓库
+    return 'x';                                               // 仅登记
+}
+
+function renderProjectSidebar(projects) {
+    const list = (projects || []).slice(0, 5);
     const html = list.length
         ? list.map(p => {
             const initial = String(p.name || '?').trim().slice(0, 1).toUpperCase() || '?';
-            return `<div class="pr" onclick="switchApp('projects')" title="${escHtml(p.name)}">
+            const title = [p.name, p.upstream_port ? `127.0.0.1:${p.upstream_port}` : '', p.external_port ? `↳${p.external_port}` : '']
+                .filter(Boolean).join(' · ');
+            return `<div class="pr" onclick="switchApp('pm')" title="${escHtml(title)}">
                 <div class="pr-i">${escHtml(initial)}</div>
                 <span class="pr-n">${escHtml(p.name)}</span>
-                <span class="pr-s ${statusDot(p.status)}"></span>
+                <span class="pr-s ${pmSidebarDot(p)}"></span>
             </div>`;
         }).join('')
         : '<div class="pr"><span class="pr-n" style="color:var(--tx3)">暂无项目</span></div>';
@@ -271,15 +278,6 @@ function updateAggBadge(n) {
     setStat('Unread', n || 0);
 }
 
-function updatePjBadge(n, total) {
-    const txt = n > 0 ? String(n) : '';
-    ['badgePj', 'badgePjL'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = txt;
-    });
-    if (total != null) setStat('Db', total);
-}
-
 // ========== 应用注册表与启动 ==========
 const registry = new Map();
 
@@ -313,7 +311,7 @@ export function startApp() {
 export {
     apiFetch, escHtml, safeUrl, formatDate,
     getActiveScreen, switchApp, layout,
-    updateAggBadge, updatePjBadge, renderProjectSidebar, setStat,
+    updateAggBadge, renderProjectSidebar, setStat,
 };
 
 // inline onclick 需要全局可见

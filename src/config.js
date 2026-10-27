@@ -27,8 +27,7 @@ export const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '')
 // WAL checkpoint 策略：always（每次写）/ throttle（写后 500ms 合并）/ off
 export const CHECKPOINT_MODE = (process.env.CHECKPOINT || 'throttle').toLowerCase();
 
-// 项目台账的事实源（zpa 清单）与仓库根目录
-export const ZPA_DIR = process.env.ZPA_DIR || '/home/tony/zrepo/zpa';
+// 仓库根目录（项目管理器扫描/建仓）
 export const ZREPO_DIR = process.env.ZREPO_DIR || '/home/tony/zrepo';
 
 // ---------- 项目管理器（PM） ----------

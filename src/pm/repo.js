@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { resolve, join, sep } from 'path';
 import {
-  PM_REPO_ROOT, PM_GITHUB_BASE, PM_GITEE_BASE, PM_GIT_NAME, PM_GIT_EMAIL,
+  PM_REPO_ROOT, PM_GITHUB_BASE, PM_GITEE_BASE, PM_GIT_NAME, PM_GIT_EMAIL, PM_PUBLIC_HOST,
 } from '../config.js';
 
 const execFileP = promisify(execFile);
@@ -52,13 +52,13 @@ export async function createRepo({ slug, name, upstreamPort, externalPort, dualR
 
 由 zdashboard 项目管理器创建。
 
-- 上游：\`127.0.0.1:${upstreamPort}\`（项目服务监听这个端口）
-- 对外：\`https://${process.env.PM_PUBLIC_HOST || '192.168.0.102'}:${externalPort}/\`（nginx 反代，可在项目管理器里开关）
+- 上游：${upstreamPort ? `\`127.0.0.1:${upstreamPort}\`` : '（未配置）'}
+- 对外：${externalPort ? `\`https://${PM_PUBLIC_HOST}:${externalPort}/\`` : '（未配置）'}（nginx 反代，可在项目管理器里开关）
 - 双远端：${dualRemote ? 'GitHub + Gitee（`git push origin main` 双推）' : '仅 GitHub'}
 
 ## 启动
 
-把你的服务监听在 \`127.0.0.1:${upstreamPort}\`，然后在项目管理器里启用 nginx 映射。
+把你的服务监听在 ${upstreamPort ? `\`127.0.0.1:${upstreamPort}\`` : '一个本机端口'}，然后在项目管理器里配置/启用 nginx 映射。
 `, 'utf8');
 
   await git(repoPath, ['init', '-b', 'main']);
@@ -84,21 +84,29 @@ export async function repoInfo(repoPath) {
     return { exists: false, remotes: [], branch: null, head: null, dirty: 0 };
   }
   try {
-    const [remoteV, branch, head, status] = await Promise.all([
+    const [remoteV, branch, logLine, st] = await Promise.all([
       git(repoPath, ['remote', '-v']),
       git(repoPath, ['rev-parse', '--abbrev-ref', 'HEAD']),
-      git(repoPath, ['log', '-1', '--format=%h %s']),
-      git(repoPath, ['status', '--porcelain']),
+      git(repoPath, ['log', '-1', '--date=short', '--format=%ad%x00%h%x00%s']),
+      git(repoPath, ['status', '--porcelain=v2', '--branch']),
     ]);
     const remotes = remoteV.split('\n').filter(Boolean).map(line => {
       const [name, url, kind] = line.split(/\s+/);
       return { name, url, kind: kind.replace(/[()]/g, '') };
     });
+    const [date = '', sha = '', subject = ''] = logLine.split('\x00');
+    const lines = st.split('\n').filter(Boolean);
+    const dirty = lines.filter(l => !l.startsWith('#')).length;
+    const ab = lines.find(l => l.startsWith('# branch.ab '));
+    const ahead = ab ? Number(ab.match(/\+(\d+)/)?.[1] || 0) : 0;
     return {
       exists: true,
       branch,
-      head,
-      dirty: status ? status.split('\n').length : 0,
+      head: `${sha} ${subject}`.trim(),
+      last_commit_at: date,
+      last_commit_subject: subject.slice(0, 80),
+      ahead,
+      dirty,
       remotes,
       dualPush: remotes.filter(r => r.kind === 'push').length >= 2,
     };

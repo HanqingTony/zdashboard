@@ -40,7 +40,7 @@ server {
 }
 
 export function renderManagedConf(projects, { at = nowIso() } = {}) {
-  const enabled = projects.filter(p => p.nginx_enabled);
+  const enabled = projects.filter(p => p.nginx_enabled && p.upstream_port != null && p.external_port != null);
   return `${HEADER}
 # generated: ${at}
 # projects: ${enabled.length}
@@ -63,7 +63,7 @@ export function writeManagedState(projects) {
   const meta = {
     at,
     publicHost: PM_PUBLIC_HOST,
-    projects: projects.filter(p => p.nginx_enabled).map(p => ({
+    projects: projects.filter(p => p.nginx_enabled && p.upstream_port != null && p.external_port != null).map(p => ({
       slug: p.slug, name: p.name, upstreamPort: p.upstream_port, externalPort: p.external_port,
     })),
   };
@@ -83,5 +83,5 @@ export function readApplyStatus() {
 }
 
 export function navUrl(p) {
-  return `https://${PM_PUBLIC_HOST}:${p.external_port}/`;
+  return p.external_port ? `https://${PM_PUBLIC_HOST}:${p.external_port}/` : null;
 }

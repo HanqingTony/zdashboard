@@ -12,7 +12,7 @@ import { mkdirSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { DB_PATH } from '../src/config.js';
 
-const TABLES = ['zInfra', 'zObjects'];
+const TABLES = ['zInfra', 'zObjects', 'zproject'];
 const DROP = process.argv.includes('--drop');
 const BASE_BACKUP = process.env.BACKUP_DIR || resolve(dirname(DB_PATH), 'backup');
 const OUT_DIR = process.env.LEGACY_DIR || resolve(BASE_BACKUP, 'legacy');
@@ -29,7 +29,7 @@ const src = new Database(DB_PATH);
 src.pragma('busy_timeout = 5000');
 const dst = new Database(archivePath);
 
-const existing = src.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN (?, ?)")
+const existing = src.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name IN (${TABLES.map(() => '?').join(',')})`)
   .all(...TABLES).map(r => r.name);
 
 if (existing.length === 0) {

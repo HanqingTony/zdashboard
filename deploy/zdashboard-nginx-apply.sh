@@ -34,12 +34,12 @@ head -1 "$SRC" | grep -q '^# Managed by zdashboard (project manager)\. DO NOT ED
     || fail "首行标记不匹配（拒绝应用非托管文件）"
 [ "$(stat -c%s "$SRC")" -lt 1048576 ] || fail "配置文件过大"
 
-# 端口段校验：18130-18189 / 12710-12799
+# 端口段校验：对外 18100-18199；上游任意 1-65535（允许 ComfyUI 8188 这类成品软件）
 while read -r port; do
-    [ "$port" -ge 18130 ] && [ "$port" -le 18189 ] || fail "对外端口越界: $port"
+    [ "$port" -ge 18100 ] && [ "$port" -le 18199 ] || fail "对外端口越界: $port"
 done < <(grep -E '^[[:space:]]*listen ' "$SRC" | grep -oE '[0-9]{4,5}' || true)
 while read -r port; do
-    [ "$port" -ge 12710 ] && [ "$port" -le 12799 ] || fail "上游端口越界: $port"
+    [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || fail "上游端口越界: $port"
 done < <(grep -E '^[[:space:]]*proxy_pass ' "$SRC" | grep -oE '127\.0\.0\.1:[0-9]+' | cut -d: -f2 || true)
 
 cp -a "$DEST" "$BACKUP" 2>/dev/null || true

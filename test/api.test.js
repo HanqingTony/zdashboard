@@ -88,34 +88,6 @@ test('坏 JSON / 未知 API / 非法参数都返回 JSON', async () => {
   assert.equal(badArticleId.status, 400);
 });
 
-test('项目台账：创建 / 评分重算 / 非法枚举 400 / 删除', async () => {
-  const created = await (await json('/api/projects', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'api-idea', kind: 'idea' }),
-  })).json();
-  assert.ok(created.id);
-
-  const patched = await (await json(`/api/projects/${created.id}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ feasibility: 5, completeness: 5, importance: 5, verdict: 'alive' }),
-  })).json();
-  assert.equal(patched.score, 15);
-  assert.equal(patched.grade, 'A');
-
-  const bad = await json(`/api/projects/${created.id}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: '不存在的状态' }),
-  });
-  assert.equal(bad.status, 400);
-
-  const list = await (await json('/api/projects?kind=idea')).json();
-  assert.equal(list.count, 1);
-  assert.equal(list.stats.ideasNoVerdict, 0);
-
-  assert.equal((await json(`/api/projects/${created.id}`, { method: 'DELETE' })).status, 200);
-  assert.equal((await json(`/api/projects/${created.id}`, { method: 'DELETE' })).status, 404);
-});
-
 test('聚合：快照结构 / 已读水位 / 未知源', async () => {
   const snap = await (await json('/api/agg')).json();
   assert.ok(Array.isArray(snap.sources));
