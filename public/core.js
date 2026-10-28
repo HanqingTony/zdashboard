@@ -85,36 +85,140 @@ const APPS = [
     { label: '📊 Data Browser' },
 ];
 
-// 主界面左上的「当前项目」：来自项目管理器（/api/pm）
-function pmSidebarDot(p) {
-    if (p.nginx_enabled && p.upstreamListening) return 'a';   // 对外在线
-    if (p.nginx_enabled) return 'p';                          // 映射开、上游未监听
-    if (p.repo_path) return 'm';                              // 仅仓库
-    return 'x';                                               // 仅登记
+// ========== 左上服务导航（收藏置顶）==========
+// 收藏只存浏览器 localStorage：key 优先用 URL，URL 变了就视为新条目。
+const NAV_FAV_KEY = 'zdbNavFavorites';
+let navFavorites = readNavFavorites();
+let navSidebarData = null;
+let navSidebarSeq = 0;
+
+function readNavFavorites() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(NAV_FAV_KEY) || '[]');
+        return new Set(Array.isArray(arr) ? arr.filter(v => typeof v === 'string') : []);
+    } catch { return new Set(); }
 }
 
-function renderProjectSidebar(projects) {
-    const list = (projects || []).slice(0, 5);
-    const html = list.length
-        ? list.map(p => {
-            const initial = String(p.name || '?').trim().slice(0, 1).toUpperCase() || '?';
-            const title = [p.name, p.upstream_port ? `127.0.0.1:${p.upstream_port}` : '', p.external_port ? `↳${p.external_port}` : '']
-                .filter(Boolean).join(' · ');
-            return `<div class="pr" onclick="switchApp('pm')" title="${escHtml(title)}">
-                <div class="pr-i">${escHtml(initial)}</div>
-                <span class="pr-n">${escHtml(p.name)}</span>
-                <span class="pr-s ${pmSidebarDot(p)}"></span>
-            </div>`;
-        }).join('')
-        : '<div class="pr"><span class="pr-n" style="color:var(--tx3)">暂无项目</span></div>';
-    for (const id of ['projectsP', 'projectsL']) {
+function saveNavFavorites() {
+    try {
+        localStorage.setItem(NAV_FAV_KEY, JSON.stringify([...navFavorites]));
+    } catch { /* 隐私模式/禁用 localStorage：本次会话内仍可用 */ }
+}
+
+function navItemKey(it) {
+    return String(it.url || it.name || '').trim();
+}
+
+function navInitial(it) {
+    const s = String(it.name || it.url || '?').trim();
+    return s ? s.slice(0, 1).toUpperCase() : '?';
+}
+
+function flattenNav(data) {
+    const out = [];
+    const seen = new Set();
+    for (const g of data?.groups || []) {
+        for (const it of g.items || []) {
+            const key = navItemKey(it);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            out.push({ ...it, key, group: g.name || '' });
+        }
+    }
+    return out;
+}
+
+function navSidebarRowHtml(it) {
+    const fav = navFavorites.has(it.key);
+    const port = it.port ? `<span class="nv-p">${escHtml(it.port)}</span>` : '';
+    const title = [
+        it.name,
+        it.desc,
+        it.group,
+        it.port ? `:${it.port}` : '',
+        it.upstream ? `↳${it.upstream}` : '',
+    ].filter(Boolean).join(' · ');
+    return `<div class="nv${fav ? ' fav' : ''}">
+        <a class="nv-link" href="${escHtml(safeUrl(it.url))}" target="_blank" rel="noopener" title="${escHtml(title)}">
+            <span class="nv-i">${escHtml(navInitial(it))}</span>
+            <span class="nv-n">${escHtml(it.name || it.url || '未命名')}</span>
+            ${port}
+        </a>
+        <button class="nv-fav${fav ? ' on' : ''}" type="button" data-nav-fav="${escHtml(it.key)}"
+            aria-pressed="${fav ? 'true' : 'false'}" title="${fav ? '取消收藏' : '收藏并置顶'}">★</button>
+    </div>`;
+}
+
+function navSidebarHtml(items) {
+    if (!items.length) return '<div class="nv-empty">暂无服务条目</div>';
+    const favs = items.filter(it => navFavorites.has(it.key));
+    const rest = items.filter(it => !navFavorites.has(it.key));
+    if (!favs.length) return items.map(navSidebarRowHtml).join('');
+    const section = (label, list) => list.length
+        ? `<div class="nv-sub">${escHtml(label)}</div>${list.map(navSidebarRowHtml).join('')}`
+        : '';
+    return section('★ 收藏', favs) + section('全部服务', rest);
+}
+
+function paintNavSidebar() {
+    const items = navSidebarData ? flattenNav(navSidebarData) : null;
+    const html = items
+        ? navSidebarHtml(items)
+        : '<div class="nv-empty">载入服务导航…</div>';
+    for (const id of ['navSidebarP', 'navSidebarL']) {
         const el = document.getElementById(id);
-        if (el) el.innerHTML = html;
+        if (!el) continue;
+        el.innerHTML = html;
+        el.querySelectorAll('[data-nav-fav]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleNavFavorite(btn.dataset.navFav);
+            });
+        });
+    }
+}
+
+function toggleNavFavorite(key) {
+    if (!key) return;
+    if (navFavorites.has(key)) navFavorites.delete(key);
+    else navFavorites.add(key);
+    saveNavFavorites();
+    paintNavSidebar();
+}
+
+async function refreshNavSidebar(force = false) {
+    if (navSidebarData && !force) {
+        paintNavSidebar();
+        return;
+    }
+    const seq = ++navSidebarSeq;
+    if (!navSidebarData) paintNavSidebar();
+    try {
+        let data;
+        try {
+            data = await (await apiFetch('/api/nav')).json();
+        } catch (e) {
+            // 未配置全局 token / API 暂时不可用时退回静态黄页
+            const res = await fetch('nav.json', { cache: 'no-store' });
+            if (!res.ok) throw e;
+            data = await res.json();
+        }
+        if (seq !== navSidebarSeq) return;
+        navSidebarData = data;
+        paintNavSidebar();
+    } catch (e) {
+        if (seq !== navSidebarSeq || navSidebarData) return;
+        const html = `<div class="nv-empty">服务导航加载失败：${escHtml(e.message)}</div>`;
+        for (const id of ['navSidebarP', 'navSidebarL']) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = html;
+        }
     }
 }
 
 function renderPanels() {
-    renderProjectSidebar([]);
+    refreshNavSidebar();
 
     const toolsHtml = (suffix) => APPS.map(t => {
         const badge = t.badgeId
@@ -299,6 +403,11 @@ export function startApp() {
     switchApp('nav');
     layout();
 
+    window.addEventListener('storage', e => {
+        if (e.key !== NAV_FAV_KEY) return;
+        navFavorites = readNavFavorites();
+        paintNavSidebar();
+    });
     window.addEventListener('resize', () => {
         panelCollapsed = false;
         savedPanelH = 0;
@@ -311,7 +420,7 @@ export function startApp() {
 export {
     apiFetch, escHtml, safeUrl, formatDate,
     getActiveScreen, switchApp, layout,
-    updateAggBadge, renderProjectSidebar, setStat,
+    updateAggBadge, refreshNavSidebar, setStat,
 };
 
 // inline onclick 需要全局可见

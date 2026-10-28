@@ -4,7 +4,7 @@
 // 左侧只改仓库字段，右侧只改端口字段；删除一侧不会连带删除另一侧。
 import {
     apiFetch, escHtml, safeUrl, isActive, getActiveScreen, registerApp,
-    renderProjectSidebar, setStat,
+    refreshNavSidebar, setStat,
 } from './core.js';
 
 const pmState = {
@@ -45,7 +45,7 @@ function applyBadge(a) {
 }
 
 function starBtn(p, cls = 'pj-v') {
-    return `<button class="${cls} ${p.pinned ? 'on' : ''}" onclick="pmToggle(${p.id},'pinned',${!!p.pinned})" title="置顶到左上当前项目">★</button>`;
+    return `<button class="${cls} ${p.pinned ? 'on' : ''}" onclick="pmToggle(${p.id},'pinned',${!!p.pinned})" title="在项目管理器中置顶">★</button>`;
 }
 
 function repoText(p) {
@@ -120,7 +120,7 @@ function portRowHtml(p) {
         <td>
             <div class="pm-actions">
                 <button class="pj-v ${on(p.web_enabled)}" onclick="pmToggle(${p.id},'webEnabled',${!!p.web_enabled})" title="是否挂到主页">主页</button>
-                <button class="pj-v ${on(p.pinned)}" onclick="pmToggle(${p.id},'pinned',${!!p.pinned})" title="置顶">★</button>
+                <button class="pj-v ${on(p.pinned)}" onclick="pmToggle(${p.id},'pinned',${!!p.pinned})" title="在项目管理器中置顶">★</button>
                 ${p.url ? `<a class="vb pm-open ${p.nginx_enabled && p.web_enabled ? '' : 'disabled'}" href="${escHtml(safeUrl(p.url))}" target="_blank" rel="noopener" title="打开">↗</a>` : ''}
                 <button class="agg-rf" onclick="pmRemovePorts(${p.id})" title="移除端口（仓库保留）">🗑</button>
             </div>
@@ -297,9 +297,11 @@ function pmSlugSync(name, which) {
 }
 
 export function applyPmData(data) {
+    const hadData = !!pmState.data;
     pmState.data = data;
     updatePmBadge(data.projects.length);
-    renderProjectSidebar(data.projects);
+    // 首次数据由 renderPanels() 自己拉 /api/nav；后续 PM 变更再刷新侧栏
+    if (hadData) refreshNavSidebar(true);
     if (isActive('pm')) drawPm();
 }
 

@@ -115,31 +115,51 @@
             padding:8px 12px 4px;font-size:9px;font-weight:600;
             text-transform:uppercase;letter-spacing:.8px;color:var(--tx3);
         }
+        .sec-title .sec-hint{
+            margin-left:6px;font-weight:400;letter-spacing:0;
+            text-transform:none;color:var(--tx3);opacity:.75;
+        }
         /* 分区分隔线 */
         .sec-div{height:1px;background:var(--bdr);margin:3px 12px}
 
-        /* 项目列表行 */
-        .pr{
-            display:flex;align-items:center;gap:7px;
-            padding:5px 12px;cursor:pointer;transition:background .12s;
+        /* 服务导航侧栏条目 */
+        .nv{
+            display:flex;align-items:center;gap:2px;
+            padding:0 7px 0 12px;transition:background .12s;
         }
-        .pr:hover{background:var(--bg2)}
-        /* 项目图标（22px方形，后续可放项目图片） */
-        .pr-i{
-            width:22px;height:22px;border-radius:4px;background:var(--bg3);
+        .nv:hover{background:var(--bg2)}
+        .nv.fav{background:rgba(240,180,41,.045)}
+        .nv-link{
+            display:flex;align-items:center;gap:7px;flex:1;min-width:0;
+            padding:5px 0;text-decoration:none;color:inherit;
+        }
+        .nv-i{
+            width:20px;height:20px;border-radius:4px;background:var(--bg3);
             flex-shrink:0;display:flex;align-items:center;justify-content:center;
-            font-size:9px;color:var(--tx3);overflow:hidden;
+            font-size:9px;color:var(--ac2);overflow:hidden;
         }
-        .pr-i img{width:100%;height:100%;object-fit:cover}
-        /* 项目名称 */
-        .pr-n{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        /* 项目状态圆点 */
-        .pr-s{margin-left:auto;width:5px;height:5px;border-radius:50%;flex-shrink:0}
-        .pr-s.a{background:var(--grn)}   /* 进行中：绿色 */
-        .pr-s.m{background:var(--blu)}   /* 维护中：蓝色 */
-        .pr-s.p{background:var(--org)}   /* 规划中：橙色 */
-        .pr-s.r{background:var(--red)}   /* 欠账：红色 */
-        .pr-s.x{background:var(--tx3)}   /* 已归档：灰色 */
+        .nv-n{
+            font-size:11px;font-weight:500;color:var(--tx);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+        }
+        .nv-p{
+            margin-left:auto;flex-shrink:0;padding:0 3px;border-radius:3px;
+            font-size:9px;font-family:ui-monospace,Menlo,Consolas,monospace;
+            color:var(--ac2);background:rgba(108,92,231,.14);
+            border:1px solid rgba(108,92,231,.28);
+        }
+        .nv-fav{
+            width:20px;height:20px;flex-shrink:0;border:0;background:transparent;
+            color:var(--tx3);cursor:pointer;font-size:11px;line-height:1;
+            border-radius:4px;
+        }
+        .nv-fav:hover{color:var(--org);background:var(--bg3)}
+        .nv-fav.on{color:var(--org)}
+        .nv-sub{
+            padding:7px 12px 2px;font-size:9px;font-weight:600;
+            letter-spacing:.5px;color:var(--tx3);
+        }
+        .nv-empty{padding:6px 12px;font-size:10px;color:var(--tx3)}
 
         /* 工具列表行 */
         .tl{

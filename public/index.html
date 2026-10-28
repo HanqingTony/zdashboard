@@ -22,10 +22,10 @@
         <span class="clk" id="clockP"></span>
         <span class="online-dot"></span>
     </div>
-    <!-- 面板内容（Projects列表 + Tools列表；由 app.js 的 renderPanels() 生成，避免双份硬编码漂移） -->
+    <!-- 面板内容（服务导航 + Tools列表；由 app.js 的 renderPanels() 生成，避免双份硬编码漂移） -->
     <div class="panel-content" id="panelP" style="background:var(--bg);border-bottom:1px solid var(--bdr)">
-        <div class="sec-title">当前项目</div>
-        <div id="projectsP"></div>
+        <div class="sec-title">服务导航 <span class="sec-hint">★ 收藏置顶</span></div>
+        <div id="navSidebarP"></div>
         <div class="sec-div"></div>
         <div class="sec-title">Tools</div>
         <div id="toolsP"></div>
@@ -58,8 +58,8 @@
         </div>
         <!-- 面板内容（横屏下可独立滚动） -->
         <div class="panel-content" id="panelL">
-            <div class="sec-title">当前项目</div>
-            <div id="projectsL"></div>
+            <div class="sec-title">服务导航 <span class="sec-hint">★ 收藏置顶</span></div>
+            <div id="navSidebarL"></div>
             <div class="sec-div"></div>
             <div class="sec-title">Tools</div>
             <div id="toolsL"></div>

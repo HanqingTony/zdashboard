@@ -106,7 +106,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
   - 已有手工 nginx 映射的服务（18110/18104/18101/18102/18120）以 `nginx_enabled=0` 登记，避免重复 listen
 - git：`POST /api/pm/sync` 刷新 last_commit/dirty/ahead/synced_at（并发 3）
 - nginx：app 写 `PM_STATE_DIR/pm-nginx.conf`；root 的 `zdashboard-nginx-apply.path` 校验端口段、`nginx -t`、reload，失败回滚
-- 主页：`GET /api/nav` 合并 nav.json + 启用且挂主页的项目；**主界面左上「当前项目」**也来自 PM（前 5 条）
+- 主页：`GET /api/nav` 合并 nav.json + 启用且挂主页的项目；**主界面左上「服务导航」**也读 `/api/nav`，每条可收藏，收藏条目置顶（收藏存浏览器 localStorage）
 - 写保护：已取消 PM 口令；仅保留可选全局 `AUTH_TOKEN`（当前未启用）
 - 解绑：`DELETE /:id/repo` 保留端口；`DELETE /:id/ports` 保留仓库；两边都没了才删整条
 - 不启动项目进程、不自动 push/建远端
@@ -122,8 +122,9 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - `core.js` 提供 `apiFetch / escHtml / safeUrl / getActiveScreen / layout / isActive / registerApp / 状态栏 helpers`；不要反向 import 具体模块
 - PM 模块：`public/pm.js`（无口令；写操作直接调用 `/api/pm`）；主页数据走 `/api/nav`，失败回退静态 `nav.json`
 - 竖屏/横屏两块屏都在 DOM 里；`layout()` 在跨 768px 断点时**重渲染当前应用**（修复旋转后空白）
-- 顶栏项目数/未读/版本是真实数据（`setStat`）；左上「当前项目」来自 `/api/pm`（前 5 条）
-- 侧栏 Projects/Tools 由 `renderPanels()` 从 `APPS` 配置生成（不再两份硬编码）
+- 顶栏项目数/未读/版本是真实数据（`setStat`）；左上「服务导航」来自 `/api/nav`，收藏条目自动置顶
+- 侧栏服务导航 + Tools 由 `core.js` 的 `renderPanels()` 生成；两侧栏（竖屏/横屏）共用同一份数据
+- 收藏 key 用服务 URL（`zdbNavFavorites`），只存本机浏览器；跨标签页通过 `storage` 事件同步
 - `escHtml()` 转义 `& < > " '`；外链一律走 `safeUrl()`（只放行 http(s)/站内路径）
 - 分词必须用 `public/tokenize.js`（`tokenize` / `wordCounts`），不要在任一端另写正则；URL/邮箱/代码块已被自动排除
 - 前端模块通过 `registerApp(id, { render, onLeave? })` 注册；新页面加一个模块并在 `app.js` import

@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.5.0** · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.5.1** · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -63,8 +63,8 @@ Tools 里的 **🛠 项目管理器**：左栏「仓库管理」、右栏「端�
 - **扫描**：左栏「扫描仓库」只导仓库；右栏「扫描运行服务」只导已知服务/成品软件；也可 `npm run pm:scan` 全扫；已有手工映射的服务只登记、不重复 listen
 - **同步 git**：刷新 last commit / 脏文件 / 未推送 / 双远端
 - **nginx**：启用后由 root 的 `zdashboard-nginx-apply.path/service` 校验并安装 `/etc/nginx/conf.d/zdashboard-projects.conf`，`nginx -t` 失败自动回滚
-- **主页挂载**：`GET /api/nav` 合并静态黄页与托管项目；**左上「当前项目」**也来自 PM
-- **开关**：nginx / 主页 / 置顶独立；删除只删管理记录，仓库保留
+- **主页挂载**：`GET /api/nav` 合并静态黄页与托管项目；**左上「服务导航」**也读同一份数据，每条可收藏，收藏置顶（localStorage）
+- **开关**：nginx / 主页 / PM 内置顶独立；删除只删管理记录，仓库保留
 - **写保护**：已取消独立 PM 口令；如启用全局 `AUTH_TOKEN`，PM 写操作会一并受保护（当前未启用，仅建议内网使用）
 - 上游未监听时映射仍可打开，但会 502；管理器不启动项目进程
 

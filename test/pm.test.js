@@ -28,11 +28,12 @@ test('slug 规则', () => {
   assert.equal(validateSlug('-bad'), false);
 });
 
-test('端口分配：跳过已占用的 12710/18130', async () => {
+test('端口分配：跳过已占用的 18130，上游落在 12710–12799', async () => {
   mkdirSync(join(TMP, 'nginx', 'conf.d'), { recursive: true });
   writeFileSync(join(TMP, 'nginx', 'conf.d', 'x.conf'), 'server { listen 18130 ssl; }\n');
   const ports = await allocatePorts({});
-  assert.equal(ports.upstreamPort, 12710);
+  // 12710 可能被宿主上的服务占用；自动分配只需落在段内且避开 nginx/ss/nav/db
+  assert.ok(ports.upstreamPort >= 12710 && ports.upstreamPort <= 12799);
   assert.notEqual(ports.externalPort, 18130);
   assert.ok(ports.externalPort >= 18131);
   await assert.rejects(() => allocatePorts({ externalPort: 18130 }), /已被占用/);
