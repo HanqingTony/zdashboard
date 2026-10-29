@@ -1,7 +1,7 @@
 {
   "name": "zdashboard",
-  "version": "0.5.1",
-  "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目管理器 / Vocab",
+  "version": "0.6.0",
+  "description": "zDashboard — 个人仪表盘：服务导航 / 信息聚合 / 项目管理器 / 路线图 / Vocab",
   "private": true,
   "type": "module",
   "engines": {

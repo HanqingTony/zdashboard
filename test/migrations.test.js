@@ -1,4 +1,4 @@
-// 迁移框架：最新版本、v6 表结构、v5→v6 数据迁移
+// 迁移框架：最新版本、v7 表结构、v5→v6 数据迁移
 process.env.DB_PATH = ':memory:';
 process.env.CHECKPOINT = 'off';
 
@@ -14,7 +14,7 @@ const LATEST = MIGRATIONS.at(-1).version;
 test('新库跑到最新 schema，台账表已移除', () => {
   assert.equal(db.pragma('user_version', { simple: true }), LATEST);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
-  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'agg_item', 'agg_state', 'managed_project']) {
+  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'agg_item', 'agg_state', 'managed_project', 'roadmap_goal', 'roadmap_node']) {
     assert.ok(tables.includes(t), `缺表: ${t}`);
   }
   assert.equal(tables.includes('zproject'), false, 'zproject 应已移除');

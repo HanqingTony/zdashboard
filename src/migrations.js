@@ -189,6 +189,46 @@ export const MIGRATIONS = [
     },
   },
   {
+    version: 7,
+    name: 'roadmap-tables',
+    up(db) {
+      // 个人路线图：目标（goal）→ 树形里程碑（node，parent_id 自引用）
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS roadmap_goal (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          title       TEXT NOT NULL,
+          description TEXT,
+          category    TEXT NOT NULL DEFAULT '其他',
+          status      TEXT NOT NULL DEFAULT 'active',   -- active | paused | done
+          target_date TEXT,                              -- YYYY-MM-DD
+          completed_at TEXT,
+          sort_order  INTEGER NOT NULL DEFAULT 0,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS roadmap_node (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          goal_id     INTEGER NOT NULL,
+          parent_id   INTEGER,
+          title       TEXT NOT NULL,
+          description TEXT,
+          status      TEXT NOT NULL DEFAULT 'todo',      -- todo | doing | done | blocked
+          target_date TEXT,
+          completed_at TEXT,
+          sort_order  INTEGER NOT NULL DEFAULT 0,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL,
+          FOREIGN KEY (goal_id) REFERENCES roadmap_goal(id) ON DELETE CASCADE,
+          FOREIGN KEY (parent_id) REFERENCES roadmap_node(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_roadmap_node_goal ON roadmap_node (goal_id, sort_order)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_roadmap_node_parent ON roadmap_node (parent_id, sort_order)');
+    },
+  },
+  {
     version: 6,
     name: 'pm-v2-and-remove-ledger',
     up(db) {
@@ -236,6 +276,9 @@ export const MIGRATIONS = [
     },
   },
 ];
+
+// 数组按版本号执行；即使后续在文件中间补迁移，也不会打乱顺序。
+MIGRATIONS.sort((a, b) => a.version - b.version);
 
 export function migrate(db) {
   const current = db.pragma('user_version', { simple: true }) || 0;

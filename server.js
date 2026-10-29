@@ -23,6 +23,7 @@ server.listen(PORT, HOST, () => {
   console.log('[zdashboard] 英语学习: /api/articles, /api/words, /api/vocab/stats');
   console.log('[zdashboard] 信息聚合: GET /api/agg, POST /api/agg/refresh|open');
   console.log('[zdashboard] 项目管理器: GET /api/pm, POST /api/pm/scan|sync');
+  console.log('[zdashboard] 路线图: GET /api/roadmap, POST|PATCH|DELETE /api/roadmap/goals|nodes');
 });
 
 let closing = false;

@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.5.1** · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.6.0** · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -68,6 +68,18 @@ Tools 里的 **🛠 项目管理器**：左栏「仓库管理」、右栏「端�
 - **写保护**：已取消独立 PM 口令；如启用全局 `AUTH_TOKEN`，PM 写操作会一并受保护（当前未启用，仅建议内网使用）
 - 上游未监听时映射仍可打开，但会 502；管理器不启动项目进程
 
+### 个人路线图
+
+Tools 里的 **◇ 路线图**：把个人目标拆成可折叠的树形里程碑。
+
+- **目标**：标题、分类、状态（进行中/暂停/完成）、目标日期、描述；左侧目标列表可切换
+- **里程碑**：挂在目标下，支持无限层级子项；状态 `todo / doing / done / blocked`，可写日期与描述
+- **树形视图**：纵向缩进 + 连接线，父节点显示子项完成比与汇总进度；可折叠分支
+- **编辑**：目标/里程碑增删改；里程碑可改上级（禁止移动到自身或子节点下，服务端防环）
+- **进度**：不落库，按树实时汇总；总完成度按全部里程碑完成数计算
+- **删除**：删除目标级联删除里程碑；删除里程碑级联删除子项（前端有确认）
+- **持久化**：SQLite `roadmap_goal` / `roadmap_node`（schema v7）；折叠状态只存当前页面内存
+
 ### 英语学习（Vocab）
 
 粘贴英文文章 → 分词入库 → 按状态着色 → 点击切换状态。
@@ -110,6 +122,13 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | POST | `/api/pm/scan` | 扫描并补建条目：`?what=repos\|ports\|all`（写保护） |
 | POST | `/api/pm/sync` | 刷新 git 派生字段（写保护） |
 | GET | `/api/nav` | 黄页 + 托管项目（主页用） |
+| GET | `/api/roadmap` | 路线图全量目标 + 里程碑 + 统计 |
+| POST | `/api/roadmap/goals` | 新建目标 |
+| PATCH | `/api/roadmap/goals/:id` | 编辑目标（标题/描述/分类/状态/日期） |
+| DELETE | `/api/roadmap/goals/:id` | 删除目标（级联里程碑） |
+| POST | `/api/roadmap/nodes` | 新建里程碑（`parentId` 可空） |
+| PATCH | `/api/roadmap/nodes/:id` | 编辑/移动/完成里程碑 |
+| DELETE | `/api/roadmap/nodes/:id` | 删除里程碑（级联子项） |
 
 所有错误（含坏 JSON、未知 API）统一返回 JSON：`{ "error": "..." }`。
 
@@ -155,6 +174,7 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
   - 容器/单文件 bind-mount 用 `CHECKPOINT=always`：每次写立刻把 WAL 合回主 `.db`
   - 关机时 `flushCheckpoint()` 强制落盘；`busy=1` 会打 warn 而不是静默吞掉
 - 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`），不再与 SQLite `localtime` 混用
+- 路线图使用 schema v7：`roadmap_goal` / `roadmap_node`，`parent_id` 自引用；删除目标/里程碑依赖 `ON DELETE CASCADE`
 - 历史表 `zInfra` / `zObjects` 已由 `npm run archive-legacy -- --drop` 归档并从主库删除（归档文件在 `BACKUP_DIR/legacy/`）
 
 ## 部署
@@ -259,7 +279,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；30 个用例）
+npm test           # node:test（内存库，不碰生产数据；31 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除
@@ -289,7 +309,7 @@ zdashboard/
 │   │   ├── scan.js         # 扫描本机仓库/服务
 │   │   ├── nginx.js        # nginx 期望状态
 │   │   └── store.js        # managed_project
-│   └── routes/             # articles / vocab / agg / pm
+│   └── routes/             # articles / vocab / agg / pm / roadmap
 ├── public/
 │   ├── index.html          # 单页骨架（资产带 ?v=<版本>）
 │   ├── app.js              # 启动入口（注册应用 + 角标）
@@ -298,6 +318,7 @@ zdashboard/
 │   ├── nav.js              # 服务导航模块
 │   ├── agg.js              # 信息聚合模块
 │   ├── pm.js               # 项目管理器模块
+│   ├── roadmap.js          # 个人路线图模块
 │   ├── tokenize.js         # 前后端共用分词器
 │   ├── nav.json            # 黄页数据源
 │   └── style.css
@@ -306,7 +327,7 @@ zdashboard/
 │   ├── create-remote-repos.mjs # 创建 GitHub+Gitee 仓库
 │   ├── archive-legacy.js   # 历史表归档/删除
 │   └── scan-projects.js    # 扫描本机仓库/服务
-├── test/                   # node:test（tokenize / agg / pm / api / auth / rate-limit / migrations）
+├── test/                   # node:test（tokenize / agg / pm / roadmap / api / auth / rate-limit / migrations）
 ├── deploy/                 # Dockerfile / compose / systemd 单元 /
 │                           # nginx apply script + path/service / build_run.sh / c2r.sh
 ├── .github/workflows/      # CI：npm ci + npm test

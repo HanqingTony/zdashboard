@@ -2,14 +2,14 @@
 
 ## Tech Stack
 - Backend: Node.js 22（ESM `"type": "module"`）、Express 4.x、better-sqlite3、undici、fast-xml-parser
-- Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|pm.js` 模块）+ `tokenize.js`
+- Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|pm|roadmap.js` 模块）+ `tokenize.js`
 - Tests: `node:test`（`npm test`，内存库，不碰生产数据）
 
 ## Commands
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（30 用例，内存库）
+npm test           # node --test（31 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -68,9 +68,18 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | 单词状态与统计 |
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
 | `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply,/:id/repo,/:id/ports]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
+| `src/routes/roadmap.js` | `/api/roadmap[/goals,/nodes]` | 个人路线图：目标 + 树形里程碑 |
 | `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
-所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`。
+所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`；路线图校验在 `src/routes/roadmap.js`。
+
+## 个人路线图
+- 表：`roadmap_goal` / `roadmap_node`（schema v7），`roadmap_node.parent_id` 自引用；删除依赖 `ON DELETE CASCADE`
+- API：`GET /api/roadmap` 返回 goals/nodes/stats；目标 `POST/PATCH/DELETE /api/roadmap/goals`；里程碑 `POST/PATCH/DELETE /api/roadmap/nodes`
+- 进度不落库：前端按树汇总；根节点显示子项完成比；总完成度按全部节点完成数
+- 里程碑可换父节点，服务端 `wouldCycle()` 防环；不能跨目标挂载
+- 前端 `public/roadmap.js`：树形递归 `nodeHtml()`、折叠集合 `rmCollapsed`（仅内存）、弹窗 `openRoadmapDialog()`；样式在本文件 `.rm-*` 段
+- 新增迁移必须保证版本顺序（`MIGRATIONS.sort` 已兜底，但不要在已有迁移中间插新版本）
 
 ## 信息聚合
 - 每源一段探针：`src/agg/sources.js`；加源 = 加一条 `SOURCES` 条目
@@ -133,7 +142,8 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 聚合页先渲染缓存，再逐源增量刷新（并发 3、单卡回填）；`refreshAgg(id)` 单源、`refreshAgg()` 全量
 - 每 5 分钟轮询未读；离开聚合页 / `pagehide` / 页面隐藏时打已读水位（keepalive）
 - Vocab 文章按 12000 token 分段渲染（`renderNextChunk`），不要一次性 innerHTML 整篇
-- Vocab 是唯一有完整交互的工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
+- Vocab 与路线图是完整交互工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
+- 路线图折叠状态只存页面内存；刷新后默认全展开；树形连接线在 `.rm-branch::before`，修改缩进时同步改宽度
 
 ## Deploy
 - 生产：zmain 上 systemd `zdashboard.service`（单元模板在 `deploy/`，含最小权限 hardening）→ `127.0.0.1:28100`，nginx **18100** 反代
