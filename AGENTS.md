@@ -9,7 +9,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（31 用例，内存库）
+npm test           # node --test（32 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -82,6 +82,9 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 进度不落库：前端 `computeLayout()` 对每个节点的可达后代去重计算；总完成度按全部节点 done 比例
 - 布局：根在左、分支向右；第一条 incoming edge 是主线，额外 edge 虚线；每条根分支取 `PALETTE` 颜色
 - 前端 `public/roadmap.js`：`computeLayout()` / `paintInto()` / `fitRoadmap()` / `dialogHtml()`；画布平移缩放用 `rmPan` + `rmZoom`，`rmStageKey` 在断点/旋转时自动重新 fit；无折叠状态
+- 创建节点默认走画布内快速录入，不要退回完整表单：`rmQuickAdd()` 只问标题；`rmQuickOpen()` 浮层、`rmQuickSave()` 保存；`Enter` 同级、`Tab` 子级、`Esc`/完成结束；日期/分类/描述/多上级只在编辑弹窗里补
+- 快速输入框是 `position:fixed`，位置按 viewport 夹紧；手机端节点 `＋` 隐藏（hover 不适用），用详情里的「＋ 子节点」
+- 选中节点后 `Tab`/`Enter` 由 `rmKeydown()` 处理；输入框/弹窗内不拦截
 - 样式 `public/style.css` 的 `.rm-*`；节点图标/类型样式必须限定 `.rm-node.rm-kind-*`，不要污染 inspector 标签
 - 测试：`test/roadmap-api.test.js`（多上级/防环/删除上移）、`test/migrations.test.js`（v7→v8）
 - 新增迁移必须保证版本顺序（`MIGRATIONS.sort` 已兜底，但不要在已有迁移中间插新版本）

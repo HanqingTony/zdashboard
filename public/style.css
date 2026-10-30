@@ -1104,3 +1104,50 @@
     .rm-node{padding:6px 8px}
     .rm-node-title{font-size:11.5px}
 }
+
+/* ---------- 画布内快速创建（只问标题） ---------- */
+.rm-node-plus{
+    position:absolute;right:6px;top:6px;z-index:4;width:18px;height:18px;
+    display:flex;align-items:center;justify-content:center;border-radius:50%;
+    border:1px solid var(--rm-ac);background:#181b28;color:var(--tx);
+    font-size:12px;line-height:1;opacity:0;transition:opacity .12s,background .12s;
+    cursor:pointer;
+}
+.rm-node:hover .rm-node-plus,.rm-node.is-selected .rm-node-plus{opacity:1}
+.rm-node-plus:hover{background:var(--rm-ac);color:#0d0f16}
+.rm-node:hover .rm-node-status,.rm-node.is-selected .rm-node-status{opacity:0}
+.rm-quick{
+    position:fixed;z-index:120;width:252px;padding:9px 10px 8px;
+    border:1px solid rgba(162,155,254,.5);border-radius:12px;
+    background:rgba(18,20,31,.98);box-shadow:0 18px 55px rgba(0,0,0,.55),0 0 0 3px rgba(108,92,231,.08);
+    backdrop-filter:blur(12px);
+}
+.rm-quick-head{display:flex;align-items:center;gap:6px;min-width:0;margin-bottom:6px}
+.rm-quick-head b{font-size:9px;color:var(--ac2);white-space:nowrap}
+.rm-quick-head span{flex:1;min-width:0;font-size:8px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rm-quick-done{
+    margin-left:auto;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+    color:var(--tx2);font:inherit;font-size:8px;padding:2px 6px;border-radius:4px;cursor:pointer;white-space:nowrap;
+}
+.rm-quick-done:hover{border-color:var(--ac);color:var(--tx)}
+.rm-quick-input{
+    width:100%;box-sizing:border-box;padding:7px 8px;border-radius:7px;
+    border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.05);
+    color:var(--tx);font:600 13px/1.3 inherit;outline:none;
+}
+.rm-quick-input:focus{border-color:var(--ac);box-shadow:0 0 0 2px rgba(108,92,231,.16)}
+.rm-quick-input.is-saving{opacity:.5}
+.rm-quick-help{margin-top:6px;color:var(--tx3);font-size:8px;white-space:nowrap}
+.rm-quick-help kbd{
+    display:inline-block;margin:0 2px 0 5px;padding:0 3px;border-radius:3px;
+    border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+    color:var(--tx2);font:inherit;
+}
+.rm-quick-help kbd:first-child{margin-left:0}
+@media (max-width:820px){
+    /* 触屏没有 hover，节点右下角的 ＋ 容易和状态重叠；子节点走详情里的按钮。 */
+    .rm-node-plus{display:none}
+}
+@media (max-width:560px){
+    .rm-quick{width:calc(100vw - 20px);max-width:300px}
+}

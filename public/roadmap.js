@@ -35,6 +35,7 @@ let rmError = null;
 let rmLayout = null;
 let rmSelectedId = null;
 let rmDialogState = null;
+let rmQuick = null;
 let rmZoom = 1;
 let rmPan = { x: 0, y: 0 };
 let rmFitDone = false;
@@ -272,6 +273,7 @@ function applyTransform() {
     if (canvas) canvas.style.transform = `translate(${rmPan.x}px, ${rmPan.y}px) scale(${rmZoom})`;
     const label = document.getElementById('rmZoomLabel');
     if (label) label.textContent = `${Math.round(rmZoom * 100)}%`;
+    rmQuickPosition();
 }
 function repaint() {
     if (!isActive('roadmap')) return;
@@ -305,7 +307,7 @@ function emptyHtml() {
         <div class="rm-empty-mark">✦</div>
         <h2>把愿景画成一张图</h2>
         <p>愿景是根，项目是枝，里程碑是叶。一个节点可以连到多个愿景；多条彩色分支就是你的多线发展。</p>
-        <button class="rm-btn rm-btn-primary" onclick="rmOpenCreate('vision')">＋ 创建第一个愿景</button>
+        <button class="rm-btn rm-btn-primary" onclick="rmQuickAdd(null, 'vision')">＋ 创建第一个愿景</button>
     </div>`;
 }
 function appHtml() {
@@ -337,6 +339,8 @@ function appHtml() {
                 ${pct}
             </span>
             ${bar}
+            <span class="rm-node-plus" role="button" tabindex="-1" title="添加子节点"
+                onclick="event.preventDefault();event.stopPropagation();rmQuickAdd(${n.id})">＋</span>
         </button>`;
     }).join('');
 
@@ -368,8 +372,8 @@ function appHtml() {
                 <div class="rm-kpi"><b>${s.progress || 0}%</b><span>完成度</span></div>
             </div>
             <div class="rm-actions">
-                <button class="rm-btn rm-btn-primary" onclick="rmOpenCreate('vision')">＋ 愿景</button>
-                <button class="rm-btn" onclick="rmOpenCreate('project')">＋ 项目</button>
+                <button class="rm-btn rm-btn-primary" onclick="rmQuickAdd(null, 'vision')">＋ 愿景</button>
+                <button class="rm-btn" onclick="rmQuickAdd(null, 'project')">＋ 项目</button>
                 <button class="rm-btn rm-icon-btn" onclick="rmFit(true)" title="适应画布">⛶</button>
                 <button class="rm-btn rm-icon-btn" onclick="rmRefresh()" title="刷新">↻</button>
             </div>
@@ -392,7 +396,7 @@ function appHtml() {
                     <span id="rmZoomLabel">100%</span>
                     <button type="button" onclick="rmZoomBy(0.15)" title="放大">＋</button>
                 </div>
-                <div class="rm-hint">拖动画布 · 滚轮缩放 · 双击节点编辑</div>
+                <div class="rm-hint">拖动平移 · 滚轮缩放 · 点节点看详情 · Tab 子节点 · Enter 同级</div>
             </div>
             <aside class="rm-inspector${selected ? ' show' : ''}" id="rmInspector">${inspectorHtml(selected)}</aside>
         </div>
@@ -404,7 +408,7 @@ function inspectorHtml(n) {
         return `<div class="rm-insp-empty">
             <div class="rm-insp-mark">✦</div>
             <h3>节点详情</h3>
-            <p>点击画布上的节点查看详情。拖动画布平移，滚轮缩放，双击节点直接编辑。</p>
+            <p>点击节点看详情；拖动画布平移，滚轮缩放。选中节点后按 Tab 加子节点、Enter 加同级，双击可编辑。</p>
             <div class="rm-insp-guide">
                 <span><b>愿景</b> 大目标 / 方向</span>
                 <span><b>项目</b> 一条推进线</span>
@@ -418,7 +422,6 @@ function inspectorHtml(n) {
     const parents = parentEdgesOf(n.id).map(e => nodeOf(e.parentId)).filter(Boolean);
     const childCount = childIdsOf(n.id).length;
     const desc = String(n.description || '').trim();
-    const childKind = n.kind === 'vision' ? 'project' : 'task';
     return `<div class="rm-insp-top">
             <span class="rm-kind-tag rm-kind-${kind.cls}">${kind.label}</span>
             <button type="button" class="rm-insp-close" onclick="rmCloseInspector()" title="关闭">×</button>
@@ -441,7 +444,7 @@ function inspectorHtml(n) {
             </div>
         </div>
         <div class="rm-insp-actions">
-            <button class="rm-btn rm-btn-primary" onclick="rmOpenCreate('${childKind}', ${n.id})">＋ 子节点</button>
+            <button class="rm-btn rm-btn-primary" onclick="rmQuickAdd(${n.id})">＋ 子节点</button>
             <button class="rm-btn" onclick="rmOpenEdit(${n.id})">编辑</button>
             <button class="rm-btn rm-danger" onclick="rmDelete(${n.id})">删除</button>
         </div>
@@ -598,7 +601,185 @@ async function rmDelete(id) {
     }
 }
 
-// ========== 创建 / 编辑弹窗 ==========
+// ========== 画布内快速创建 ==========
+// 只问标题：Enter 继续同级，Tab 建子级，Esc/点击外部结束。
+// 其余字段全部走默认值，之后在右侧详情里按需补。
+function rmQuickAdd(parentId = null, kind = null) {
+    const parent = parentId == null ? null : nodeOf(Number(parentId));
+    const k = KIND[kind] ? kind : (parent ? (parent.kind === 'vision' ? 'project' : 'task') : 'vision');
+    rmQuickOpen({
+        parentIds: parent ? [parent.id] : [],
+        kind: k,
+        anchorId: parent ? parent.id : null,
+    });
+}
+function rmQuickSiblingFromSelection() {
+    const n = nodeOf(rmSelectedId);
+    if (!n) return;
+    const parentIds = parentEdgesOf(n.id).map(e => e.parentId);
+    rmQuickOpen({ parentIds, kind: n.kind, anchorId: parentIds[0] ?? null });
+}
+function rmQuickOpen({ parentIds = [], kind = 'project', anchorId = null } = {}) {
+    rmQuickClose();
+    const ids = parentIds.map(Number).filter(id => nodeOf(id));
+    rmQuick = {
+        parentIds: ids,
+        kind: KIND[kind] ? kind : 'project',
+        anchorId: anchorId == null ? null : Number(anchorId),
+        saving: false,
+    };
+    const stage = document.getElementById('rmStage');
+    if (!stage) { rmQuick = null; return; }
+    const el = document.createElement('div');
+    el.id = 'rmQuick';
+    el.className = 'rm-quick';
+    const kindLabel = KIND[rmQuick.kind].label;
+    const whereParent = ids.length ? nodeOf(ids[0]) : null;
+    const where = whereParent ? `挂在「${escHtml(whereParent.title)}」下` : (rmQuick.kind === 'vision' ? '新的愿景根节点' : '新的根项目');
+    el.innerHTML = `<div class="rm-quick-head"><b>＋ ${kindLabel}</b><span>${where}</span><button type="button" class="rm-quick-done">完成</button></div>
+        <input id="rmQuickInput" class="rm-quick-input" maxlength="200" autocomplete="off"
+            placeholder="输入标题，回车继续…" aria-label="节点标题">
+        <div class="rm-quick-help"><kbd>Enter</kbd> 同级 <kbd>Tab</kbd> 子级 <kbd>Esc</kbd> 结束</div>`;
+    document.body.appendChild(el);
+    const input = el.querySelector('input');
+    const done = el.querySelector('.rm-quick-done');
+    input.addEventListener('keydown', rmQuickKey);
+    done.addEventListener('pointerdown', e => e.preventDefault());
+    done.addEventListener('click', () => rmQuickSave(null));
+    input.addEventListener('blur', () => {
+        const q = rmQuick;
+        setTimeout(() => {
+            if (!q || rmQuick !== q || q.saving) return;
+            if (input.value.trim()) rmQuickSave(null);
+            else rmQuickClose();
+        }, 140);
+    });
+    requestAnimationFrame(() => {
+        rmQuickPosition();
+        input.focus();
+    });
+}
+function rmQuickKey(e) {
+    if (!rmQuick) return;
+    if (e.isComposing) return;
+    if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation();
+        rmQuickClose();
+        return;
+    }
+    if (e.key === 'Enter') {
+        e.preventDefault(); e.stopPropagation();
+        rmQuickSave('sibling');
+        return;
+    }
+    if (e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation();
+        rmQuickSave('child');
+    }
+}
+async function rmQuickSave(next) {
+    const q = rmQuick;
+    if (!q || q.saving) return;
+    const input = document.getElementById('rmQuickInput');
+    if (!input) return;
+    const title = input.value.trim();
+    if (!title) { input.focus(); return; }
+    q.saving = true;
+    input.disabled = true;
+    input.classList.add('is-saving');
+    try {
+        const data = await rmApi('/api/roadmap/nodes', {
+            method: 'POST',
+            body: JSON.stringify({ title, kind: q.kind, parentIds: q.parentIds }),
+        });
+        if (!data?.node || !data?.graph) throw new Error('服务端没有返回新节点');
+        rmNodes = data.graph.nodes;
+        rmEdges = data.graph.edges;
+        rmStats = data.graph.stats;
+        const created = data.node;
+        const savedParentIds = q.parentIds.slice();
+        const savedAnchor = q.anchorId;
+        rmSelectedId = created.id;
+        rmQuickClose();
+        if (!isActive('roadmap')) return;
+        rmFitDone = true;
+        repaint();
+        rmRevealNode(created.id);
+        if (next === 'child') {
+            rmQuickOpen({
+                parentIds: [created.id],
+                kind: created.kind === 'vision' ? 'project' : 'task',
+                anchorId: created.id,
+            });
+        } else if (next === 'sibling') {
+            // 根节点的同级没有父节点可挂输入框，就贴着刚建出来的根继续录。
+            rmQuickOpen({
+                parentIds: savedParentIds,
+                kind: q.kind,
+                anchorId: savedAnchor == null ? created.id : savedAnchor,
+            });
+        } else {
+            rmToast('已添加');
+        }
+    } catch (err) {
+        q.saving = false;
+        input.disabled = false;
+        input.classList.remove('is-saving');
+        rmToast(err.message || '创建失败', true);
+        input.focus();
+    }
+}
+function rmQuickClose() {
+    const el = document.getElementById('rmQuick');
+    if (el) el.remove();
+    rmQuick = null;
+}
+function rmQuickPosition() {
+    const el = document.getElementById('rmQuick');
+    const stage = document.getElementById('rmStage');
+    if (!el || !stage || !rmLayout) return;
+    const r = stage.getBoundingClientRect();
+    let x;
+    let y;
+    const p = rmQuick?.anchorId == null ? null : rmLayout.positions.get(rmQuick.anchorId);
+    if (p) {
+        x = r.left + (p.x + p.w + 24) * rmZoom + rmPan.x;
+        y = r.top + (p.y + p.h / 2 - 18) * rmZoom + rmPan.y;
+    } else {
+        x = r.left + r.width / 2 - 125;
+        y = r.top + r.height / 2 - 40;
+    }
+    // 用 viewport 而不是 stage 做边界：手机端页面可能滚动，stage 底边会跑出屏幕。
+    const margin = 10;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    x = Math.max(margin, Math.min(x, vw - el.offsetWidth - margin));
+    y = Math.max(margin, Math.min(y, vh - el.offsetHeight - margin));
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top = `${Math.round(y)}px`;
+}
+function rmRevealNode(id) {
+    const stage = document.getElementById('rmStage');
+    const p = rmLayout?.positions.get(id);
+    if (!stage || !p) return;
+    const sx = p.x * rmZoom + rmPan.x;
+    const sy = p.y * rmZoom + rmPan.y;
+    const sw = p.w * rmZoom;
+    const sh = p.h * rmZoom;
+    const margin = 36;
+    let dx = 0;
+    let dy = 0;
+    if (sx < margin) dx = margin - sx;
+    else if (sx + sw > stage.clientWidth - margin) dx = stage.clientWidth - margin - (sx + sw);
+    if (sy < margin) dy = margin - sy;
+    else if (sy + sh > stage.clientHeight - margin) dy = stage.clientHeight - margin - (sy + sh);
+    if (dx || dy) {
+        rmPan = { x: rmPan.x + dx, y: rmPan.y + dy };
+        applyTransform();
+    }
+}
+
+// ========== 编辑弹窗 ==========
 function ensureDialog() {
     let d = document.getElementById('rmDialog');
     if (!d) {
@@ -611,12 +792,7 @@ function ensureDialog() {
     return d;
 }
 function rmOpenCreate(kind = 'project', parentId = null) {
-    rmDialogState = {
-        mode: 'create',
-        kind: KIND[kind] ? kind : 'project',
-        parentId: parentId == null ? null : Number(parentId),
-    };
-    openDialog();
+    rmQuickAdd(parentId, KIND[kind] ? kind : 'project');
 }
 function rmOpenEdit(id) {
     const n = nodeOf(id);
@@ -753,6 +929,7 @@ async function rmSubmit(e) {
 
 function rmRefresh() {
     if (rmLoading) return;
+    rmQuickClose();
     rmLoaded = false;
     rmSelectedId = null;
     rmError = null;
@@ -767,15 +944,37 @@ function render(el) {
     paintInto(el);
 }
 
+function rmKeydown(e) {
+    if (!isActive('roadmap') || rmQuick || rmDialogState || rmSelectedId == null) return;
+    if (e.isComposing) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && t.closest('input,textarea,select,[contenteditable="true"]')) return;
+    if (t && t.closest('.rm-btn,.rm-zoombar,.rm-insp-close,.rm-parent-chip,.rm-parent-opt')) return;
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        rmQuickAdd(rmSelectedId);
+    } else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        rmQuickSiblingFromSelection();
+    } else if (e.key === 'Escape') {
+        rmSelectedId = null;
+        repaint();
+    }
+}
+document.addEventListener('keydown', rmKeydown);
+window.addEventListener('resize', rmQuickPosition);
+window.addEventListener('scroll', rmQuickPosition, { passive: true });
+
 registerApp('roadmap', {
     render,
     onLeave() {
+        rmQuickClose();
         if (rmDialogState) rmCloseDialog();
     },
 });
 
 Object.assign(window, {
-    rmSelect, rmCloseInspector, rmOpenCreate, rmOpenEdit, rmDelete,
+    rmSelect, rmCloseInspector, rmOpenCreate, rmOpenEdit, rmDelete, rmQuickAdd,
     rmFit: fitRoadmap, rmZoomBy, rmRefresh,
     rmCloseDialog, rmSubmit,
 });
