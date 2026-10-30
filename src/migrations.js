@@ -229,6 +229,89 @@ export const MIGRATIONS = [
     },
   },
   {
+    version: 8,
+    name: 'roadmap-mindmap-graph',
+    up(db) {
+      // v0.7.0：把「目标 + 单亲树」升级为画布式 DAG。
+      // 愿景 / 项目 / 里程碑都是同一张节点表；roadmap_graph_edge 允许一个节点关联多个上级。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS roadmap_graph_node (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          title       TEXT NOT NULL,
+          description TEXT,
+          category    TEXT,
+          kind        TEXT NOT NULL DEFAULT 'project',  -- vision | project | task
+          status      TEXT NOT NULL DEFAULT 'todo',     -- todo | doing | done | blocked | paused
+          target_date TEXT,
+          completed_at TEXT,
+          sort_order  INTEGER NOT NULL DEFAULT 0,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS roadmap_graph_edge (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          parent_id  INTEGER NOT NULL,
+          child_id   INTEGER NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          UNIQUE (parent_id, child_id),
+          FOREIGN KEY (parent_id) REFERENCES roadmap_graph_node(id) ON DELETE CASCADE,
+          FOREIGN KEY (child_id)  REFERENCES roadmap_graph_node(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_rm_graph_node_sort ON roadmap_graph_node (sort_order, id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_rm_graph_edge_parent ON roadmap_graph_edge (parent_id, sort_order)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_rm_graph_edge_child ON roadmap_graph_edge (child_id, sort_order)');
+
+      const oldGoals = db.prepare('SELECT * FROM roadmap_goal ORDER BY sort_order, id').all();
+      const oldNodes = db.prepare('SELECT * FROM roadmap_node ORDER BY goal_id, sort_order, id').all();
+      const nodeIds = new Map();
+      const insertNode = db.prepare(`
+        INSERT INTO roadmap_graph_node
+          (title, description, category, kind, status, target_date, completed_at,
+           sort_order, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const mapStatus = s => ({ active: 'doing', paused: 'paused', done: 'done' }[s] || s || 'todo');
+
+      for (const goal of oldGoals) {
+        const info = insertNode.run(
+          goal.title, goal.description, goal.category || null, 'vision',
+          mapStatus(goal.status), goal.target_date, goal.completed_at,
+          goal.sort_order, goal.created_at, goal.updated_at,
+        );
+        nodeIds.set(`g${goal.id}`, Number(info.lastInsertRowid));
+      }
+      for (const node of oldNodes) {
+        const info = insertNode.run(
+          node.title, node.description, null,
+          node.parent_id == null ? 'project' : 'task',
+          mapStatus(node.status), node.target_date, node.completed_at,
+          node.sort_order, node.created_at, node.updated_at,
+        );
+        nodeIds.set(`n${node.id}`, Number(info.lastInsertRowid));
+      }
+
+      const insertEdge = db.prepare(`
+        INSERT OR IGNORE INTO roadmap_graph_edge (parent_id, child_id, sort_order, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      const now = new Date().toISOString();
+      for (const node of oldNodes) {
+        const childId = nodeIds.get(`n${node.id}`);
+        const parentId = node.parent_id == null
+          ? nodeIds.get(`g${node.goal_id}`)
+          : nodeIds.get(`n${node.parent_id}`);
+        if (childId && parentId) insertEdge.run(parentId, childId, node.sort_order || 0, node.created_at || now);
+      }
+
+      db.exec('DROP TABLE IF EXISTS roadmap_node');
+      db.exec('DROP TABLE IF EXISTS roadmap_goal');
+    },
+  },
+  {
     version: 6,
     name: 'pm-v2-and-remove-ledger',
     up(db) {

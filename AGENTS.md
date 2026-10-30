@@ -68,17 +68,22 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | 单词状态与统计 |
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
 | `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply,/:id/repo,/:id/ports]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
-| `src/routes/roadmap.js` | `/api/roadmap[/goals,/nodes]` | 个人路线图：目标 + 树形里程碑 |
+| `src/routes/roadmap.js` | `/api/roadmap[/nodes]` | 个人路线图：DAG 节点 + 画布式思维导图 |
 | `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
 所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`；路线图校验在 `src/routes/roadmap.js`。
 
-## 个人路线图
-- 表：`roadmap_goal` / `roadmap_node`（schema v7），`roadmap_node.parent_id` 自引用；删除依赖 `ON DELETE CASCADE`
-- API：`GET /api/roadmap` 返回 goals/nodes/stats；目标 `POST/PATCH/DELETE /api/roadmap/goals`；里程碑 `POST/PATCH/DELETE /api/roadmap/nodes`
-- 进度不落库：前端按树汇总；根节点显示子项完成比；总完成度按全部节点完成数
-- 里程碑可换父节点，服务端 `wouldCycle()` 防环；不能跨目标挂载
-- 前端 `public/roadmap.js`：树形递归 `nodeHtml()`、折叠集合 `rmCollapsed`（仅内存）、弹窗 `openRoadmapDialog()`；样式在本文件 `.rm-*` 段
+## 个人路线图（画布式思维导图）
+- 表：`roadmap_graph_node` / `roadmap_graph_edge`（schema v8）；节点 `kind` = `vision|project|task`，`status` = `todo|doing|done|blocked|paused`
+- DAG：一个节点 0..N 个上级（最多 32），无上级即根；同一项目可同时服务多个愿景
+- API：`GET /api/roadmap` → `{nodes,edges,stats}`；`POST/PATCH/DELETE /api/roadmap/nodes[/:id]`（`parentIds` 替换上级）
+- 防环：`assertNoCycle()` 用递归 CTE 查后代；不能以自己/后代为上级；日期、枚举、长度均在服务端校验
+- 删除语义：只删当前节点和连线；子节点断开并上移为根节点，不级联删除
+- 进度不落库：前端 `computeLayout()` 对每个节点的可达后代去重计算；总完成度按全部节点 done 比例
+- 布局：根在左、分支向右；第一条 incoming edge 是主线，额外 edge 虚线；每条根分支取 `PALETTE` 颜色
+- 前端 `public/roadmap.js`：`computeLayout()` / `paintInto()` / `fitRoadmap()` / `dialogHtml()`；画布平移缩放用 `rmPan` + `rmZoom`，`rmStageKey` 在断点/旋转时自动重新 fit；无折叠状态
+- 样式 `public/style.css` 的 `.rm-*`；节点图标/类型样式必须限定 `.rm-node.rm-kind-*`，不要污染 inspector 标签
+- 测试：`test/roadmap-api.test.js`（多上级/防环/删除上移）、`test/migrations.test.js`（v7→v8）
 - 新增迁移必须保证版本顺序（`MIGRATIONS.sort` 已兜底，但不要在已有迁移中间插新版本）
 
 ## 信息聚合
@@ -143,7 +148,8 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 每 5 分钟轮询未读；离开聚合页 / `pagehide` / 页面隐藏时打已读水位（keepalive）
 - Vocab 文章按 12000 token 分段渲染（`renderNextChunk`），不要一次性 innerHTML 整篇
 - Vocab 与路线图是完整交互工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
-- 路线图折叠状态只存页面内存；刷新后默认全展开；树形连接线在 `.rm-branch::before`，修改缩进时同步改宽度
+- 路线图是画布而不是列表：不要退回「左目标列表 + 右侧纵向树」；节点点击进 inspector，双击编辑
+- 路线图手机端 inspector 是底部抽屉；断点变化通过 `rmStageKey` 重新 fit，避免沿用桌面平移量
 
 ## Deploy
 - 生产：zmain 上 systemd `zdashboard.service`（单元模板在 `deploy/`，含最小权限 hardening）→ `127.0.0.1:28100`，nginx **18100** 反代
