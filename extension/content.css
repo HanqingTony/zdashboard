@@ -1,0 +1,44 @@
+/*
+ * 词析高亮只作用于 Text 片段（CSS Custom Highlight），
+ * 不会给 <a>/<button>/<img>/<video> 套层，也不改变原页面布局。
+ */
+::highlight(zd-familiar) {
+  background-color: rgba(245, 197, 66, .38);
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: rgba(245, 197, 66, .85);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+::highlight(zd-unknown) {
+  background-color: rgba(239, 92, 92, .36);
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: rgba(239, 92, 92, .85);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+#zd-vocab-toast {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 10px 16px;
+  border: 1px solid rgba(139, 233, 192, .35);
+  border-radius: 999px;
+  background: rgba(12, 18, 22, .92);
+  color: #dff8ee;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: .01em;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

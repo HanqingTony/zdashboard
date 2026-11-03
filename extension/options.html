@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZVocab 网页词析 · 设置</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <div class="brand">
+        <span class="brand-mark">Z</span>
+        <div>
+          <h1>ZVocab 网页词析</h1>
+          <p>把网页正文变成可点击的单词标注层</p>
+        </div>
+      </div>
+      <span class="version">v0.1.0</span>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="card-head">
+          <h2>存储模式</h2>
+          <span class="hint">二选一，数据只落在你选择的地方</span>
+        </div>
+        <div class="mode-grid">
+          <label class="mode">
+            <input type="radio" name="mode" value="local">
+            <span class="mode-body">
+              <strong>本地模式</strong>
+              <small>IndexedDB 工作库，导出/导入 JSON、CSV 文件。单独使用，不依赖 zdashboard。</small>
+            </span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="api">
+            <span class="mode-body">
+              <strong>API 模式</strong>
+              <small>直接调用 zdashboard 的词库 API，写入同一个 SQLite；没有同步和第二份数据。</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" id="localCard">
+        <div class="card-head">
+          <h2>本地数据 / 导出</h2>
+          <span class="hint">JSON / CSV</span>
+        </div>
+        <div class="row">
+          <label class="field">
+            <span>导出格式</span>
+            <select id="format">
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+            </select>
+          </label>
+          <label class="field grow">
+            <span>数据目录（可选）</span>
+            <div class="inline">
+              <input id="folderName" readonly placeholder="未选择，将使用浏览器下载">
+              <button class="btn ghost" id="chooseFolder" type="button">选择目录</button>
+            </div>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="exportBtn" type="button">导出当前数据</button>
+          <button class="btn ghost" id="importBtn" type="button">导入 JSON / CSV</button>
+          <span class="mini" id="localNote">数据同时保存在扩展本地，导出的文件可带到别处。</span>
+        </div>
+      </section>
+
+      <section class="card" id="apiCard">
+        <div class="card-head">
+          <h2>zdashboard API</h2>
+          <span class="hint">服务端地址 + 可选写保护 token</span>
+        </div>
+        <div class="row">
+          <label class="field grow">
+            <span>API 地址</span>
+            <input id="apiUrl" type="url" placeholder="http://127.0.0.1:28100" spellcheck="false">
+          </label>
+          <label class="field">
+            <span>X-ZToken（可选）</span>
+            <input id="apiToken" type="password" placeholder="未启用可留空" autocomplete="off">
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="testApi" type="button">测试连接</button>
+          <button class="btn primary" id="saveApi" type="button">保存 API 设置</button>
+          <span class="mini" id="apiNote">API 模式下，点击单词会立即写入 zdashboard 的数据库。</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>数据概览</h2>
+          <button class="btn ghost small" id="refreshStats" type="button">刷新</button>
+        </div>
+        <div class="stats">
+          <div><b id="statWords">–</b><span>词条</span></div>
+          <div><b id="statOcc">–</b><span>出处记录</span></div>
+          <div><b id="statMode">–</b><span>当前模式</span></div>
+        </div>
+      </section>
+
+      <section class="card tip">
+        <h2>使用方式</h2>
+        <ol>
+          <li>打开任意网页，点击浏览器工具栏的 Z 图标 → 当前页面开启词析。</li>
+          <li>点击单词：无记录 → 黄（不熟）→ 红（不认识）→ 无色（已掌握）。</li>
+          <li>在正文段落上右键 →「本段分析完成」，本段未标记的词会一次性设为已掌握。</li>
+          <li>再次点击 Z 图标关闭；高亮只作用于文字片段，不拦截滚动、视频和图片。</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <span id="status" class="status"></span>
+      <span class="footnote">本地模式不传任何数据；API 模式只连接你填写的地址。</span>
+    </footer>
+  </div>
+
+  <input id="importFile" type="file" accept=".json,.csv,application/json,text/csv" hidden>
+  <script src="options.js"></script>
+</body>
+</html>

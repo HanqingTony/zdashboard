@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.7.1** · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.8.0** · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -94,6 +94,19 @@ Tools 里的 **🗺 路线图**：把愿景、项目、里程碑画成一张可�
 - 删除文章会级联删除词-文章关联，并清理**不再属于任何文章**的孤立词（确认框文案与实际一致）
 - 统计：`GET /api/vocab/stats`
 
+### 浏览器词析（扩展）
+
+`extension/` 是一个可单独加载的 Chromium MV3 扩展：把网页正文变成可点击的单词标注层。
+
+- **两种模式**：本地模式（IndexedDB + JSON/CSV 导入导出）或 API 模式（直接调用 zdashboard，同一个 SQLite）
+- **点击循环**：初始无记录 → 黄（不熟）→ 红（不认识）→ 无色（已掌握）→ 黄……
+- **段落完成**：正文段落右键「本段分析完成」，本段未标记词批量写成 mastered
+- **记录**：点击词/段落完成的词写入 `zWordOccurrence`（单词、状态、出处 URL、标题、原句、时间、点击次数）
+- **保守拦截**：只处理 `p/li/blockquote/...` 正文块，跳过导航、按钮、代码、媒体和短标签；滚动/视频/图标交互不受影响
+- **API**：`GET /api/vocab/words`、`POST /api/vocab/occurrences`、`GET /api/vocab/occurrences`，通用 JSON，不绑定数据库方言
+
+安装：Chrome/Edge「加载已解压的扩展程序」→ 选择 `extension/`。详见 [`extension/README.md`](extension/README.md)。
+
 ### 已删除：音频播放器
 
 v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放条、`AUDIO_DIR` 配置、`ws` 依赖全部移除。
@@ -109,8 +122,11 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | GET | `/api/articles/:id` | 文章详情 + 单词状态 |
 | DELETE | `/api/articles/:id` | 删除文章 + 清理孤立词 |
 | PUT | `/api/words` | `{word,status}` 更新掌握状态 |
+| GET | `/api/vocab/words?words=a,b` | 批量词状态；无记录 = 初始未标记 |
+| POST | `/api/vocab/occurrences` | 批量 upsert 状态 + 出处/原句；`clicked:false` 不增加点击次数 |
+| GET | `/api/vocab/occurrences?word=&limit=` | 出处记录（导出/排查） |
 | GET | `/api/words/:word/articles` | 单词详情（出现过的文章） |
-| GET | `/api/vocab/stats` | 词汇统计 |
+| GET | `/api/vocab/stats` | 词汇统计（含 occurrence 数） |
 | GET | `/api/agg` | 聚合快照（缓存 + 未读数 + stale） |
 | POST | `/api/agg/refresh` | `?source=<id>` 刷一个；不带则刷过期源；`?force=1` 强制全部 |
 | POST | `/api/agg/open` | `{all:true}` 或 `{source:"<id>"}` 标记已读水位 |
@@ -278,7 +294,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；32 个用例）
+npm test           # node:test（内存库，不碰生产数据；40 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除
@@ -327,6 +343,12 @@ zdashboard/
 │   ├── archive-legacy.js   # 历史表归档/删除
 │   └── scan-projects.js    # 扫描本机仓库/服务
 ├── test/                   # node:test（tokenize / agg / pm / roadmap / api / auth / rate-limit / migrations）
+├── extension/              # Chromium MV3 网页词析扩展
+│   ├── manifest.json
+│   ├── background.js       # IndexedDB / API 转发 / 右键菜单 / 导入导出
+│   ├── content.js          # 文本扫描 / 单词命中 / 状态循环 / 段落完成
+│   ├── content.css
+│   └── options.html|css|js
 ├── deploy/                 # Dockerfile / compose / systemd 单元 /
 │                           # nginx apply script + path/service / build_run.sh / c2r.sh
 ├── .github/workflows/      # CI：npm ci + npm test

@@ -312,6 +312,30 @@ export const MIGRATIONS = [
     },
   },
   {
+    version: 9,
+    name: 'word-occurrences',
+    up(db) {
+      // 网页词析插件的“见过/出处/原句”记录；状态快照与 zVocab 当前状态分开。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS zWordOccurrence (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          word         TEXT NOT NULL,
+          status       TEXT NOT NULL DEFAULT 'mastered',
+          source_url   TEXT NOT NULL DEFAULT '',
+          source_title TEXT NOT NULL DEFAULT '',
+          context      TEXT NOT NULL DEFAULT '',
+          context_hash TEXT NOT NULL,
+          first_seen   TEXT NOT NULL,
+          last_seen    TEXT NOT NULL,
+          click_count  INTEGER NOT NULL DEFAULT 1,
+          UNIQUE (word, source_url, context_hash)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_word_occ_word ON zWordOccurrence (word, last_seen)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_word_occ_source ON zWordOccurrence (source_url)');
+    },
+  },
+  {
     version: 6,
     name: 'pm-v2-and-remove-ledger',
     up(db) {

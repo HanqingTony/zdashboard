@@ -58,6 +58,6 @@ export function hasPendingCheckpoint() {
 }
 
 console.log(`[db] 已连接: ${DB_PATH}（checkpoint=${CHECKPOINT_MODE}, schema=v${schemaVersion}）`);
-console.log('[db] 表: zVocab, zArticles, zWordArticles, agg_item, agg_state, managed_project, roadmap_graph_node, roadmap_graph_edge');
+console.log('[db] 表: zVocab, zArticles, zWordArticles, zWordOccurrence, agg_item, agg_state, managed_project, roadmap_graph_node, roadmap_graph_edge');
 
 export default db;

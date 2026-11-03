@@ -3,13 +3,14 @@
 ## Tech Stack
 - Backend: Node.js 22（ESM `"type": "module"`）、Express 4.x、better-sqlite3、undici、fast-xml-parser
 - Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|pm|roadmap.js` 模块）+ `tokenize.js`
+- Extension: `extension/` Chromium MV3，无构建步骤；`background.js` + `content.js` + `options.*`
 - Tests: `node:test`（`npm test`，内存库，不碰生产数据）
 
 ## Commands
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（32 用例，内存库）
+npm test           # node --test（40 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -49,6 +50,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
   - `always`（容器/单文件 bind-mount）：每次写立刻 TRUNCATE
   - 关机 `flushCheckpoint()` 强制落盘；`busy=1` 会 warn
 - 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`）；不要混用 SQLite `localtime`
+- 当前 schema v9：路线图 v8 + `zWordOccurrence`（词 + 页面 + 原句出处；`UNIQUE(word, source_url, context_hash)`）
 - 历史表 `zInfra` / `zObjects` / `zproject` 已归档到 `BACKUP_DIR/legacy/` 并从主库删除（`scripts/archive-legacy.js`）
 
 ## Server Architecture
@@ -65,13 +67,26 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | File | Prefix | Purpose |
 |------|--------|---------|
 | `src/routes/articles.js` | `/api/articles` | 文章 CRUD；分词入库；删除后清理孤立词 |
-| `src/routes/vocab.js` | `/api/words`, `/api/vocab/stats` | 单词状态与统计 |
+| `src/routes/vocab.js` | `/api/words`, `/api/vocab/words`, `/api/vocab/occurrences`, `/api/vocab/stats` | 单词状态、出处记录与统计 |
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
 | `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply,/:id/repo,/:id/ports]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
 | `src/routes/roadmap.js` | `/api/roadmap[/nodes]` | 个人路线图：DAG 节点 + 画布式思维导图 |
 | `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
 所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`；路线图校验在 `src/routes/roadmap.js`。
+
+## 浏览器词析扩展（extension/）
+- 独立产品：Chrome/Edge 加载 `extension/` 即可；无构建、无远程代码
+- 两种模式：本地（IndexedDB + JSON/CSV 导入导出）或 API（直接调 zdashboard，同一个 SQLite，无同步）
+- 状态语义：初始**无记录**=无色；`familiar`=黄；`unknown`=红；`mastered`=无色
+- 点击循环：无记录 → familiar → unknown → mastered → familiar；段落右键完成只把本段无记录词写为 mastered，已有黄/红不动
+- `POST /api/vocab/occurrences` 支持 `clicked:false`（段落完成不增加点击次数）；`zWordOccurrence` 按 `(word, source_url, context_hash)` 去重
+- 内容脚本只处理 `p/li/blockquote/dd/dt/td/th/figcaption`，跳过 nav/header/footer/aside、按钮/输入/代码/媒体/iframe/`contenteditable` 和短块；不要加全屏透明层
+- 高亮用 CSS Custom Highlight（`::highlight(zd-familiar)` / `zd-unknown`），不给图标/视频套层；点击命中单词才捕获
+- API 模式走 background 代理请求，避免页面 CSP/CORS；`AUTH_TOKEN` 对应 `X-ZToken`
+- 设置变更会通知已开启页面关闭词析，避免两种存储模式混用旧状态
+- 本地模式导出 JSON/CSV，API 模式从 zdashboard 导出；目录写入用 File System Access，失败回退下载
+- 测试：`test/vocab-extension-api.test.js`；扩展本身用 `chrome://extensions` 加载验证
 
 ## 个人路线图（画布式思维导图）
 - 表：`roadmap_graph_node` / `roadmap_graph_edge`（schema v8）；节点 `kind` = `vision|project|task`，`status` = `todo|doing|done|blocked|paused`
