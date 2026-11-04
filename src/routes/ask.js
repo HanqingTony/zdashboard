@@ -32,6 +32,10 @@ const PI_SESSION_ROOT = process.env.PI_SESSION_DIR
   || path.join(PI_AGENT_DIR, 'sessions');
 const DEFAULT_PI_BIN = path.join(homedir(), '.local', 'share', 'pnpm', 'bin', 'pi');
 const PI_BIN = process.env.PI_BIN || (existsSync(DEFAULT_PI_BIN) ? DEFAULT_PI_BIN : 'pi');
+const DEFAULT_HERDR_BIN = path.join(homedir(), '.local', 'bin', 'herdr');
+const HERDR_BIN = process.env.HERDR_BIN || (existsSync(DEFAULT_HERDR_BIN) ? DEFAULT_HERDR_BIN : 'herdr');
+const HERDR_SYNC = process.env.HERDR_SYNC !== '0';
+const HERDR_TIMEOUT_MS = Math.min(30_000, Math.max(1000, Number(process.env.HERDR_TIMEOUT_MS) || 8000));
 
 const asyncRoute = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -104,6 +108,7 @@ async function listPiSessions(limit = 40) {
         cwd,
         updatedAt: info.mtime.toISOString(),
         size: info.size,
+        file,
       });
     } catch { /* 坏 session 文件跳过 */ }
   }
@@ -212,6 +217,69 @@ function parsePiAnswer(stdout) {
   return { answer: answer.trim(), error };
 }
 
+function runHerdr(args, timeoutMs = HERDR_TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(HERDR_BIN, args, {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      fail(new Error('Herdr 超时'));
+    }, timeoutMs);
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString('utf8');
+      if (stdout.length > 2 * 1024 * 1024) {
+        child.kill('SIGKILL');
+        fail(new Error('Herdr 输出过大'));
+      }
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr = (stderr + chunk.toString('utf8')).slice(-2000);
+    });
+    child.on('error', fail);
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(Object.assign(new Error('Herdr 退出码 ' + code), { code, stderr }));
+    });
+  });
+}
+
+async function listHerdrAgents() {
+  if (!HERDR_SYNC) return null;
+  try {
+    const { stdout } = await runHerdr(['agent', 'list']);
+    const data = JSON.parse(stdout);
+    return Array.isArray(data?.result?.agents) ? data.result.agents : [];
+  } catch {
+    // 没装 Herdr、服务没起、权限不足都只代表“没有实时 TUI”，回退只读副本。
+    return null;
+  }
+}
+
+async function findHerdrAgent(sessionFile) {
+  const agents = await listHerdrAgents();
+  if (!agents) return null;
+  const wanted = path.resolve(sessionFile);
+  return agents
+    .filter(a => a?.agent === 'pi' && a?.agent_session?.value
+      && path.resolve(String(a.agent_session.value)) === wanted)
+    .sort((a, b) => Number(Boolean(b.focused)) - Number(Boolean(a.focused)))[0] || null;
+}
+
 function runPi(args, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(PI_BIN, args, {
@@ -290,7 +358,29 @@ router.post('/api/ask', (req, res) => {
 // GET /api/ask/pi/sessions
 router.get('/api/ask/pi/sessions', asyncRoute(async (req, res) => {
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
-  res.json({ sessions: await listPiSessions(limit), root: PI_SESSION_ROOT });
+  const sessions = await listPiSessions(limit);
+  const agents = await listHerdrAgents();
+  const byPath = new Map();
+  for (const agent of agents || []) {
+    const file = agent?.agent_session?.value;
+    if (agent?.agent !== 'pi' || !file) continue;
+    const key = path.resolve(String(file));
+    const current = byPath.get(key);
+    if (!current || (!current.focused && agent.focused)) byPath.set(key, agent);
+  }
+  res.json({
+    sessions: sessions.map(({ file, ...s }) => {
+      const live = byPath.get(path.resolve(file));
+      return {
+        ...s,
+        live: Boolean(live),
+        paneId: live?.pane_id || null,
+        agentStatus: live?.agent_status || null,
+      };
+    }),
+    root: PI_SESSION_ROOT,
+    herdr: agents !== null,
+  });
 }));
 
 // POST /api/ask/pi {questionId, sessionId, question}
@@ -307,6 +397,29 @@ router.post('/api/ask/pi', asyncRoute(async (req, res) => {
 
   const session = await findPiSession(sessionId);
   if (!session) return res.status(404).json({ error: 'Pi session 不存在' });
+
+  // 如果这个 session 正在 Herdr 的 Pi pane 里开着，直接把问题送进那个 TUI。
+  // Pi 的 TUI 不会监听 session JSONL 的外部追加，所以不能靠写文件“同步”。
+  const live = await findHerdrAgent(session.file);
+  if (live && live.pane_id) {
+    if (live.agent_status === 'blocked') {
+      return res.status(409).json({ error: '本地 Pi 正在等待确认，请先在终端处理，再重试' });
+    }
+    try {
+      await runHerdr(
+        ['agent', 'prompt', String(live.pane_id), parsed.value],
+        Math.max(15_000, HERDR_TIMEOUT_MS),
+      );
+      return res.json({
+        forwarded: true,
+        paneId: live.pane_id,
+        agentStatus: live.agent_status || 'unknown',
+      });
+    } catch (err) {
+      console.error('[ask/pi] herdr prompt failed', err?.message || err, String(err?.stderr || '').slice(0, 1000));
+      return res.status(502).json({ error: '发送到本地 Pi TUI 失败' });
+    }
+  }
 
   let dir = null;
   try {

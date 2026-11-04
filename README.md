@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.9.1** · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.9.2** · [v0.9.2 更新记录](docs/v0.9.2.md) · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -22,7 +22,7 @@
 - 引擎：DeepSeek / 知乎 / Grok / Claude / 本地 Pi session / 本地 SearXNG
 - 当前引擎高亮；`⌘ / Ctrl + Enter` 发送
 - 外部引擎打开官网并复制问题；`?q=` 可用时尝试预填
-- 本地 Pi 选择本机 session，在页面内显示回答；读取最近上下文，超大 session 自动截取，不写回原 session
+- 本地 Pi 选择本机 session：如果该 session 正在 Herdr TUI 中运行，问题直接送进 TUI；否则读取最近上下文回答，超大 session 自动截取
 - 最近 30 条问题存 `ask_question`；点击历史可复用
 
 ### 信息聚合
@@ -140,7 +140,7 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | GET | `/api/ask?limit=30` | Ask 最近问题 |
 | POST | `/api/ask` | 记录问题 `{question,engine,sessionId?}` |
 | GET | `/api/ask/pi/sessions` | 本机 Pi session 列表 |
-| POST | `/api/ask/pi` | 用选中 Pi session 回答 |
+| POST | `/api/ask/pi` | 转发到实时 Herdr TUI；无 TUI 时用选中 Pi session 回答 |
 | GET | `/api/agg` | 聚合快照（缓存 + 未读数 + stale） |
 | POST | `/api/agg/refresh` | `?source=<id>` 刷一个；不带则刷过期源；`?force=1` 强制全部 |
 | POST | `/api/agg/open` | `{all:true}` 或 `{source:"<id>"}` 标记已读水位 |
@@ -308,7 +308,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；44 个用例）
+npm test           # node:test（内存库，不碰生产数据；45 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除

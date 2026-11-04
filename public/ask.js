@@ -15,7 +15,7 @@ const ENGINES = [
     { id: 'claude', label: 'Claude', short: 'C', color: '#d97757',
       hint: '官网对话 · 支持 ?q= 预填时自动带入', url: 'https://claude.ai/new' },
     { id: 'pi', label: '本地 Pi', short: 'π', color: '#00d2a8',
-      hint: '读取所选 session 最近上下文；超大 session 自动截取；不写回原 session', url: '' },
+      hint: '优先发送到正在运行的 Herdr TUI；没有实时 TUI 时回退到只读副本回答', url: '' },
     { id: 'searxng', label: 'SearXNG', short: 'S', color: '#f0b429',
       hint: '本地元搜索 · 直接带关键词', url: 'https://192.168.0.102:18102/' },
 ];
@@ -80,7 +80,7 @@ function setAnswer(text, error = '', note = '') {
     state.answerNote = note || '';
     const box = document.getElementById('akAnswer');
     if (!box) return;
-    box.hidden = !state.answer && !state.answerError;
+    box.hidden = !state.answer && !state.answerError && !state.answerNote;
     const pre = box.querySelector('.ak-answer-text');
     const err = box.querySelector('.ak-answer-error');
     if (pre) {
@@ -99,7 +99,7 @@ function setAnswer(text, error = '', note = '') {
 }
 
 function answerHtml() {
-    return `<section class="ak-answer" id="akAnswer" ${state.answer || state.answerError ? '' : 'hidden'}>
+    return `<section class="ak-answer" id="akAnswer" ${state.answer || state.answerError || state.answerNote ? '' : 'hidden'}>
         <div class="ak-answer-head">
             <span><i class="ak-dot"></i> PI ANSWER</span>
             <button class="ak-mini" type="button" data-ak="copy-answer">复制</button>
@@ -126,7 +126,7 @@ function piPanelHtml() {
             <span class="ak-target-host">${escHtml(e.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</span>
             <span class="ak-target-hint">${escHtml(e.hint)}</span></div>`;
     }
-    const options = state.piSessions.map(s => `<option value="${escHtml(s.id)}" ${s.id === state.piSelected ? 'selected' : ''}>${escHtml(s.label)} · ${escHtml(s.cwd)}</option>`).join('');
+    const options = state.piSessions.map(s => `<option value="${escHtml(s.id)}" ${s.id === state.piSelected ? 'selected' : ''}>${escHtml(s.label)} · ${escHtml(s.cwd)}${s.live ? ' · TUI' : ''}</option>`).join('');
     return `<div class="ak-pi">
         <label class="ak-pi-label" for="akPiSession">PI SESSION</label>
         <select id="akPiSession" class="ak-select" ${state.piLoading || !state.piSessions.length ? 'disabled' : ''}>
@@ -135,7 +135,7 @@ function piPanelHtml() {
             ${options}
         </select>
         <button class="ak-mini" type="button" data-ak="reload-pi" ${state.piLoading ? 'disabled' : ''}>刷新</button>
-        <span class="ak-pi-hint">只读副本 · 超大 session 自动截取</span>
+        <span class="ak-pi-hint">优先发往 Herdr TUI · 无实时 TUI 时只读回答</span>
     </div>`;
 }
 
@@ -183,7 +183,7 @@ function appHtml() {
             <aside class="ak-side">
                 <div class="ak-side-head"><span>最近问题</span><button type="button" class="ak-mini" data-ak="reload-history">刷新</button></div>
                 <div class="ak-history" id="akHistory">${historyHtml()}</div>
-                <div class="ak-side-note">本地 Pi 读取所选 session 的最近上下文；超过模型窗口时自动截取，不写回原 session。外部引擎会把问题带进官网或复制到剪贴板。</div>
+                <div class="ak-side-note">本地 Pi 会优先把问题送进该 session 正在运行的 Herdr TUI；没有实时 TUI 时读取最近上下文回答。外部引擎会把问题带进官网或复制到剪贴板。</div>
             </aside>
         </div>
     </div>`;
@@ -362,12 +362,17 @@ async function submit() {
             });
             clearInterval(state.timer);
             state.timer = null;
-            setAnswer(
-                data.answer || '',
-                data.error || '',
-                data.compacted ? '所选 session 较大，已自动截取最近上下文后继续回答（不回写原 session）。' : '',
-            );
-            if (!data.error) toast('Pi 已回答，已记录。');
+            if (data.forwarded) {
+                setAnswer('', '', `已发送到本地 Pi TUI（${data.paneId}）。请回到终端查看并继续会话。`);
+                toast('已发送到本地 Pi TUI。');
+            } else {
+                setAnswer(
+                    data.answer || '',
+                    data.error || '',
+                    data.compacted ? '所选 session 较大，已自动截取最近上下文后继续回答（不回写原 session）。' : '',
+                );
+                if (!data.error) toast('Pi 已回答，已记录。');
+            }
         } catch (e) {
             setAnswer('', e.message || 'Pi 回答失败');
             toast(e.message || 'Pi 回答失败', true);
