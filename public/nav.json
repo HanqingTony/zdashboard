@@ -45,6 +45,13 @@
           "upstream": "28104"
         },
         {
+          "name": "zres 素材库",
+          "url": "https://192.168.0.102:18120/",
+          "desc": "素材库 / MinIO 管理入口",
+          "port": "18120",
+          "upstream": "28120"
+        },
+        {
           "name": "LLM API",
           "url": "http://192.168.0.102:8080/v1",
           "desc": "llama.cpp · OpenAI 兼容（按需启动）",
