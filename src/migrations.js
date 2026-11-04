@@ -312,6 +312,23 @@ export const MIGRATIONS = [
     },
   },
   {
+    version: 10,
+    name: 'ask-questions',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ask_question (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          question    TEXT NOT NULL,
+          engine      TEXT NOT NULL,
+          session_id  TEXT,
+          answer      TEXT,
+          created_at  TEXT NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_ask_question_created ON ask_question (id DESC)');
+    },
+  },
+  {
     version: 9,
     name: 'word-occurrences',
     up(db) {

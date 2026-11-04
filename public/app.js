@@ -4,6 +4,7 @@ import './nav.js';
 import './agg.js';
 import './pm.js';
 import './roadmap.js';
+import './ask.js';
 
 import { startApp, setStat, updateAggBadge, apiFetch } from './core.js';
 import { aggFetch, startAggPoll } from './agg.js';

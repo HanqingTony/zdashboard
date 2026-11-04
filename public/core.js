@@ -75,6 +75,7 @@ const spacer = document.getElementById('portSpacer');
 // 竖屏和横屏用同一份配置生成，避免两份硬编码漂移
 const APPS = [
     { app: 'nav', label: '🧭 服务导航', badge: '18100' },
+    { app: 'ask', label: '💬 Ask' },
     { app: 'agg', label: '📡 信息聚合', badgeId: 'badgeAgg' },
     { app: 'pm', label: '🛠 项目管理器', badgeId: 'badgePm' },
     { app: 'roadmap', label: '🗺 路线图' },

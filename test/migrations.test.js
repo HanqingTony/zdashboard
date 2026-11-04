@@ -14,7 +14,7 @@ const LATEST = MIGRATIONS.at(-1).version;
 test('新库跑到最新 schema，台账表已移除', () => {
   assert.equal(db.pragma('user_version', { simple: true }), LATEST);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
-  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'zWordOccurrence', 'agg_item', 'agg_state', 'managed_project', 'roadmap_graph_node', 'roadmap_graph_edge']) {
+  for (const t of ['zVocab', 'zArticles', 'zWordArticles', 'zWordOccurrence', 'agg_item', 'agg_state', 'managed_project', 'roadmap_graph_node', 'roadmap_graph_edge', 'ask_question']) {
     assert.ok(tables.includes(t), `缺表: ${t}`);
   }
   assert.equal(tables.includes('zproject'), false, 'zproject 应已移除');
@@ -96,6 +96,17 @@ test('v8 → v9：新增词条出处表且不破坏已有词状态', () => {
   const cols = t.prepare('PRAGMA table_info(zWordOccurrence)').all().map(c => c.name);
   for (const c of ['word', 'status', 'source_url', 'source_title', 'context', 'context_hash', 'first_seen', 'last_seen', 'click_count']) {
     assert.ok(cols.includes(c), `zWordOccurrence 缺列: ${c}`);
+  }
+  t.close();
+});
+
+test('v9 → v10：新增 ask_question 问题记录表', () => {
+  const t = new Database(':memory:');
+  const v10 = MIGRATIONS.find(m => m.version === 10);
+  v10.up(t);
+  const cols = t.prepare('PRAGMA table_info(ask_question)').all().map(c => c.name);
+  for (const c of ['question', 'engine', 'session_id', 'answer', 'created_at']) {
+    assert.ok(cols.includes(c), `ask_question 缺列: ${c}`);
   }
   t.close();
 });

@@ -2,7 +2,7 @@
 
 ## Tech Stack
 - Backend: Node.js 22（ESM `"type": "module"`）、Express 4.x、better-sqlite3、undici、fast-xml-parser
-- Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|pm|roadmap.js` 模块）+ `tokenize.js`
+- Frontend: `public/index.html` + ES modules（`app.js` 入口 / `core.js` 外壳 / `vocab|nav|agg|pm|roadmap|ask.js` 模块）+ `tokenize.js`
 - Extension: `extension/` Chromium MV3，无构建步骤；`background.js` + `content.js` + `options.*`
 - Tests: `node:test`（`npm test`，内存库，不碰生产数据）
 
@@ -10,7 +10,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（40 用例，内存库）
+npm test           # node --test（44 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -36,6 +36,9 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `PM_GIT_OWNER` | `HanqingTony` | 双远端 owner |
 | `PM_STATE_DIR` | `<DB 目录>/zdashboard` | 期望状态/状态文件目录 |
 | `PM_NGINX_DIR` | `/etc/nginx` | 端口扫描目录 |
+| `PI_BIN` | `~/.local/share/pnpm/bin/pi` | 本地 Pi CLI（Ask 页面调用） |
+| `PI_SESSION_DIR` | `~/.pi/agent/sessions` | 本地 Pi session 目录（Ask 页面读取） |
+| `PI_AGENT_DIR` | `~/.pi/agent` | Pi 配置目录；Ask 只复制 auth/models/settings 到临时目录 |
 | `ALLOWED_HOSTS` | 空 | 可选 Host 白名单（防 DNS rebinding，默认关闭） |
 | `BACKUP_DIR` | `<DB 目录>/backup/zdashboard` | 备份输出目录 |
 | `BACKUP_KEEP` | `7` | 备份保留份数 |
@@ -50,7 +53,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
   - `always`（容器/单文件 bind-mount）：每次写立刻 TRUNCATE
   - 关机 `flushCheckpoint()` 强制落盘；`busy=1` 会 warn
 - 时间统一 ISO 8601 UTC（`src/lib/time.js` 的 `nowIso()`）；不要混用 SQLite `localtime`
-- 当前 schema v9：路线图 v8 + `zWordOccurrence`（词 + 页面 + 原句出处；`UNIQUE(word, source_url, context_hash)`）
+- 当前 schema v10：路线图 v8 + `zWordOccurrence`（词 + 页面 + 原句出处；`UNIQUE(word, source_url, context_hash)`）+ `ask_question`
 - 历史表 `zInfra` / `zObjects` / `zproject` 已归档到 `BACKUP_DIR/legacy/` 并从主库删除（`scripts/archive-legacy.js`）
 
 ## Server Architecture
@@ -71,6 +74,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `src/routes/agg.js` | `/api/agg`, `/api/agg/refresh`, `/api/agg/open` | 信息聚合：快照 / 探针 / 已读水位 |
 | `src/routes/pm.js` | `/api/pm[/scan,/sync,/:id,/apply,/:id/repo,/:id/ports]`, `/api/nav` | 项目管理器：仓库/端口/nginx/主页 |
 | `src/routes/roadmap.js` | `/api/roadmap[/nodes]` | 个人路线图：DAG 节点 + 画布式思维导图 |
+| `src/routes/ask.js` | `/api/ask`, `/api/ask/pi[/sessions]` | Ask 咨询记录 + 本地 Pi session 桥 |
 | `src/app.js` | `/api/health` | 探活 `{ok,service,version,uptime}` |
 
 所有路由的错误响应统一 `{error}`；PM 参数校验在 `src/routes/pm.js` / `src/pm/*`；路线图校验在 `src/routes/roadmap.js`。
@@ -103,6 +107,14 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 样式 `public/style.css` 的 `.rm-*`；节点图标/类型样式必须限定 `.rm-node.rm-kind-*`，不要污染 inspector 标签
 - 测试：`test/roadmap-api.test.js`（多上级/防环/删除上移）、`test/migrations.test.js`（v7→v8）
 - 新增迁移必须保证版本顺序（`MIGRATIONS.sort` 已兜底，但不要在已有迁移中间插新版本）
+
+## Ask（咨询入口）
+- 页面 `public/ask.js`：输入框为核心，引擎 `deepseek|zhihu|grok|claude|pi|searxng`；当前引擎高亮
+- 外部引擎：打开官网 + 复制问题；DeepSeek/Grok/Claude 尝试 `?q=` 预填，但不能跨域保证官网输入框一定填充
+- 记录：`ask_question(id,question,engine,session_id,answer,created_at)`（schema v10）；`GET/POST /api/ask`
+- 本地 Pi：`GET /api/ask/pi/sessions` 扫描 `PI_SESSION_DIR`；`POST /api/ask/pi` 复制 session JSONL 到 `/tmp`，用 `--no-tools --no-mcp --no-extensions --no-context-files --print` 回答，绝不写回原 session、不执行工具
+- Pi 超时 120s；输出 8MB 上限；`PI_BIN` 可覆盖 CLI 路径；生产 `ProtectHome=read-only` 下把 auth/models/settings 复制到临时 `PI_CODING_AGENT_DIR`，session 也只在 `/tmp` 副本上写
+- 外部引擎用 `window.open` 必须在点击手势内同步打开，否则会被弹窗拦截
 
 ## 信息聚合
 - 每源一段探针：`src/agg/sources.js`；加源 = 加一条 `SOURCES` 条目
@@ -165,7 +177,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 聚合页先渲染缓存，再逐源增量刷新（并发 3、单卡回填）；`refreshAgg(id)` 单源、`refreshAgg()` 全量
 - 每 5 分钟轮询未读；离开聚合页 / `pagehide` / 页面隐藏时打已读水位（keepalive）
 - Vocab 文章按 12000 token 分段渲染（`renderNextChunk`），不要一次性 innerHTML 整篇
-- Vocab 与路线图是完整交互工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
+- Vocab、路线图、Ask 是完整交互工具；Diary/Finance/Reminders/Data Browser 保持硬编码占位
 - 路线图是画布而不是列表：不要退回「左目标列表 + 右侧纵向树」；节点点击进 inspector，双击编辑
 - 路线图手机端 inspector 是底部抽屉；断点变化通过 `rmStageKey` 重新 fit，避免沿用桌面平移量
 

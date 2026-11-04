@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.8.0** · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.9.0** · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -14,6 +14,16 @@
 - 卡片字段：`name` / `url` / `desc` / `port`（对外入口 181xx）/ `upstream`（回环上游 28xxx）/ `tags`
 - 渲染：`renderNavApp()`；样式：`style.css` 的「服务导航（黄页）模块」段
 - 端口规范见 zpa 仓库 `PORTS.md`；新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
+
+### Ask 咨询入口
+
+`Tools → 💬 Ask`：一个输入框，选择引擎后发送，问题自动留档。
+
+- 引擎：DeepSeek / 知乎 / Grok / Claude / 本地 Pi session / 本地 SearXNG
+- 当前引擎高亮；`⌘ / Ctrl + Enter` 发送
+- 外部引擎打开官网并复制问题；`?q=` 可用时尝试预填
+- 本地 Pi 选择本机 session，在页面内显示回答；只读副本，不写回原 session
+- 最近 30 条问题存 `ask_question`；点击历史可复用
 
 ### 信息聚合
 
@@ -127,6 +137,10 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | GET | `/api/vocab/occurrences?word=&limit=` | 出处记录（导出/排查） |
 | GET | `/api/words/:word/articles` | 单词详情（出现过的文章） |
 | GET | `/api/vocab/stats` | 词汇统计（含 occurrence 数） |
+| GET | `/api/ask?limit=30` | Ask 最近问题 |
+| POST | `/api/ask` | 记录问题 `{question,engine,sessionId?}` |
+| GET | `/api/ask/pi/sessions` | 本机 Pi session 列表 |
+| POST | `/api/ask/pi` | 用选中 Pi session 回答 |
 | GET | `/api/agg` | 聚合快照（缓存 + 未读数 + stale） |
 | POST | `/api/agg/refresh` | `?source=<id>` 刷一个；不带则刷过期源；`?force=1` 强制全部 |
 | POST | `/api/agg/open` | `{all:true}` 或 `{source:"<id>"}` 标记已读水位 |
@@ -294,7 +308,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；40 个用例）
+npm test           # node:test（内存库，不碰生产数据；44 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除
@@ -331,6 +345,7 @@ zdashboard/
 │   ├── core.js             # 工具/侧栏/应用注册表/布局/状态栏
 │   ├── vocab.js            # 英语学习模块
 │   ├── nav.js              # 服务导航模块
+│   ├── ask.js              # Ask 咨询入口
 │   ├── agg.js              # 信息聚合模块
 │   ├── pm.js               # 项目管理器模块
 │   ├── roadmap.js          # 个人路线图（DAG 画布思维导图）
