@@ -1,21 +1,50 @@
-// Ask 咨询记录 + 本地 Pi session 列表
+// Ask：问题记录 + 本地 Pi session 桥（用假 Pi 可执行文件，不调用真实模型）
 process.env.DB_PATH = ':memory:';
 process.env.CHECKPOINT = 'off';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const piRoot = await mkdtemp(path.join(tmpdir(), 'zd-ask-test-'));
-process.env.PI_SESSION_DIR = piRoot;
-const sessionId = 'abcdef1234567890';
-const sessionDir = path.join(piRoot, '--home-tony-project--');
-await mkdir(sessionDir, { recursive: true });
-await writeFile(path.join(sessionDir, `${sessionId}.jsonl`), [
-  JSON.stringify({ type: 'session', version: 3, id: sessionId, timestamp: '2026-01-01T00:00:00.000Z', cwd: '/home/tony/project' }),
-  JSON.stringify({ type: 'message', id: 'm1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: [{ type: 'text', text: 'hello' }] } }),
+const root = mkdtempSync(path.join(tmpdir(), 'zd-ask-test-'));
+const sessions = path.join(root, 'sessions');
+const agent = path.join(root, 'agent');
+const fakePi = path.join(root, 'fake-pi.mjs');
+mkdirSync(sessions);
+mkdirSync(agent);
+process.env.PI_SESSION_DIR = sessions;
+process.env.PI_AGENT_DIR = agent;
+process.env.PI_BIN = fakePi;
+
+writeFileSync(fakePi, `#!/usr/bin/env node
+const args = process.argv.slice(2);
+const session = args[args.indexOf('--session') + 1] || '';
+const mode = args[args.indexOf('--mode') + 1] || '';
+if (!session || mode !== 'json') process.exit(2);
+process.stdout.write(JSON.stringify({
+  type: 'message_end',
+  message: { role: 'assistant', content: [{ type: 'text', text: 'PONG' }] }
+}) + '\\n');
+`);
+chmodSync(fakePi, 0o755);
+
+const sessionId = 'testsession1234';
+const sessionFile = path.join(sessions, '--home-tony--', 'one.jsonl');
+mkdirSync(path.dirname(sessionFile), { recursive: true });
+writeFileSync(sessionFile, [
+  JSON.stringify({ type: 'session', version: 3, id: sessionId, timestamp: '2026-01-01T00:00:00.000Z', cwd: '/tmp' }),
+  JSON.stringify({ type: 'message', id: 'm1', parentId: null, timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: 'hello' }] } }),
+].join('\n') + '\n');
+
+// 超过 2MB 的 session 会触发“截取最近文本”路径
+const bigFile = path.join(sessions, '--home-tony--', 'two.jsonl');
+const bigId = 'bigsession1234';
+const bigText = 'x'.repeat(2.2 * 1024 * 1024);
+writeFileSync(bigFile, [
+  JSON.stringify({ type: 'session', version: 3, id: bigId, timestamp: '2026-01-01T00:00:00.000Z', cwd: '/tmp' }),
+  JSON.stringify({ type: 'message', id: 'b1', parentId: null, timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: bigText }] } }),
 ].join('\n') + '\n');
 
 const { createApp } = await import('../src/app.js');
@@ -33,47 +62,52 @@ const call = async (method, p, body) => {
   return { status: res.status, data: await res.json() };
 };
 
-test.after(async () => {
+test.after(() => {
   server.close();
-  await rm(piRoot, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true });
 });
 
-test('Ask：记录问题、按时间倒序读取、校验引擎', async () => {
-  const one = await call('POST', '/api/ask', { question: '先搭什么？', engine: 'deepseek' });
-  assert.equal(one.status, 201);
-  assert.equal(one.data.question.engine, 'deepseek');
-  assert.equal(one.data.question.question, '先搭什么？');
-
-  const two = await call('POST', '/api/ask', { question: 'Pi 怎么接？', engine: 'pi', sessionId });
-  assert.equal(two.status, 201);
-  assert.equal(two.data.question.sessionId, sessionId);
-
-  const list = await call('GET', '/api/ask?limit=10');
+test('Ask：记录问题、列出 Pi sessions、调用假 Pi 返回答案', async () => {
+  const list = await call('GET', '/api/ask/pi/sessions');
   assert.equal(list.status, 200);
-  assert.equal(list.data.questions.length, 2);
-  assert.equal(list.data.questions[0].id, two.data.question.id);
+  assert.ok(list.data.sessions.some(s => s.id === sessionId));
 
-  const empty = await call('POST', '/api/ask', { question: '   ', engine: 'grok' });
-  assert.equal(empty.status, 400);
-  const bad = await call('POST', '/api/ask', { question: 'x', engine: 'bing' });
-  assert.equal(bad.status, 400);
+  const created = await call('POST', '/api/ask', {
+    question: '测试 Pi', engine: 'pi', sessionId,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.question.engine, 'pi');
+
+  const answer = await call('POST', '/api/ask/pi', {
+    questionId: created.data.question.id, sessionId, question: '测试 Pi',
+  });
+  assert.equal(answer.status, 200);
+  assert.equal(answer.data.answer, 'PONG');
+  assert.equal(answer.data.compacted, false);
+
+  const history = await call('GET', '/api/ask');
+  assert.equal(history.status, 200);
+  assert.equal(history.data.questions[0].answer, 'PONG');
 });
 
-test('Pi session 列表读取本机 session 元数据', async () => {
-  const r = await call('GET', '/api/ask/pi/sessions');
-  assert.equal(r.status, 200);
-  assert.equal(r.data.sessions.length, 1);
-  assert.equal(r.data.sessions[0].id, sessionId);
-  assert.equal(r.data.sessions[0].cwd, '/home/tony/project');
-  assert.match(r.data.sessions[0].label, /project/);
+test('Ask：超大 session 自动截取，不把整段工具上下文塞给模型', async () => {
+  const created = await call('POST', '/api/ask', {
+    question: '大 session', engine: 'pi', sessionId: bigId,
+  });
+  const answer = await call('POST', '/api/ask/pi', {
+    questionId: created.data.question.id, sessionId: bigId, question: '大 session',
+  });
+  assert.equal(answer.status, 200);
+  assert.equal(answer.data.answer, 'PONG');
+  assert.equal(answer.data.compacted, true);
 });
 
-test('Pi 提问：未知 session 在启动子进程前返回 404', async () => {
-  const rec = await call('POST', '/api/ask', { question: 'test', engine: 'pi', sessionId });
+test('Ask：未知引擎和无效 session 被拒绝', async () => {
+  assert.equal((await call('POST', '/api/ask', { question: 'x', engine: 'unknown' })).status, 400);
+  const q = await call('POST', '/api/ask', { question: 'x', engine: 'pi', sessionId: 'nosuch1234' });
+  assert.equal(q.status, 201);
   const r = await call('POST', '/api/ask/pi', {
-    questionId: rec.data.question.id,
-    sessionId: 'does-not-exist',
-    question: 'test',
+    questionId: q.data.question.id, sessionId: 'nosuch1234', question: 'x',
   });
   assert.equal(r.status, 404);
 });

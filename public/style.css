@@ -1262,6 +1262,9 @@
 .ak-answer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:8px;letter-spacing:1.5px;color:var(--grn);font-weight:700}
 .ak-answer-head span{display:flex;align-items:center;gap:6px}
 .ak-dot{width:5px;height:5px;border-radius:50%;background:var(--grn)}
+.ak-answer-note{
+    margin:0 0 7px;font-size:9px;line-height:1.5;color:var(--org);
+}
 .ak-answer-text{
     margin:0;white-space:pre-wrap;word-break:break-word;color:var(--tx);font:inherit;
     font-size:12px;line-height:1.7;max-height:360px;overflow:auto;

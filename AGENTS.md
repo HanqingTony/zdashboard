@@ -38,7 +38,7 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 | `PM_NGINX_DIR` | `/etc/nginx` | 端口扫描目录 |
 | `PI_BIN` | `~/.local/share/pnpm/bin/pi` | 本地 Pi CLI（Ask 页面调用） |
 | `PI_SESSION_DIR` | `~/.pi/agent/sessions` | 本地 Pi session 目录（Ask 页面读取） |
-| `PI_AGENT_DIR` | `~/.pi/agent` | Pi 配置目录；Ask 只复制 auth/models/settings 到临时目录 |
+| `PI_AGENT_DIR` | `~/.pi/agent` | Pi 配置目录；Ask 只复制 auth/models 到临时目录 |
 | `ALLOWED_HOSTS` | 空 | 可选 Host 白名单（防 DNS rebinding，默认关闭） |
 | `BACKUP_DIR` | `<DB 目录>/backup/zdashboard` | 备份输出目录 |
 | `BACKUP_KEEP` | `7` | 备份保留份数 |
@@ -112,8 +112,9 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 页面 `public/ask.js`：输入框为核心，引擎 `deepseek|zhihu|grok|claude|pi|searxng`；当前引擎高亮
 - 外部引擎：打开官网 + 复制问题；DeepSeek/Grok/Claude 尝试 `?q=` 预填，但不能跨域保证官网输入框一定填充
 - 记录：`ask_question(id,question,engine,session_id,answer,created_at)`（schema v10）；`GET/POST /api/ask`
-- 本地 Pi：`GET /api/ask/pi/sessions` 扫描 `PI_SESSION_DIR`；`POST /api/ask/pi` 复制 session JSONL 到 `/tmp`，用 `--no-tools --no-mcp --no-extensions --no-context-files --print` 回答，绝不写回原 session、不执行工具
-- Pi 超时 120s；输出 8MB 上限；`PI_BIN` 可覆盖 CLI 路径；生产 `ProtectHome=read-only` 下把 auth/models/settings 复制到临时 `PI_CODING_AGENT_DIR`，session 也只在 `/tmp` 副本上写
+- 本地 Pi：`GET /api/ask/pi/sessions` 扫描 `PI_SESSION_DIR`；`POST /api/ask/pi` 复制 session JSONL 到 `/tmp`，用 `--no-tools --no-mcp --no-extensions --no-context-files --mode json --print` 回答，绝不写回原 session、不执行工具
+- 大 session（>2MB）只保留最近 500k 字符的 system/user/assistant 文本，丢工具结果/thinking；否则会超过模型上下文（1,048,576）
+- Pi 超时 120s；输出 8MB 上限；`PI_BIN` 可覆盖 CLI 路径；生产 `ProtectHome=read-only` 下只把 `auth.json` / `models.json` / `models-store.json` 复制到临时 `PI_CODING_AGENT_DIR`，不要复制 `settings.json` / `mcp.json`（会触发 npm 扩展安装，EROFS 失败），session 也只在 `/tmp` 副本上写
 - 外部引擎用 `window.open` 必须在点击手势内同步打开，否则会被弹窗拦截
 
 ## 信息聚合

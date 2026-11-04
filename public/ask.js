@@ -15,7 +15,7 @@ const ENGINES = [
     { id: 'claude', label: 'Claude', short: 'C', color: '#d97757',
       hint: '官网对话 · 支持 ?q= 预填时自动带入', url: 'https://claude.ai/new' },
     { id: 'pi', label: '本地 Pi', short: 'π', color: '#00d2a8',
-      hint: '读取本机 session 上下文回答，不写回原 session', url: '' },
+      hint: '读取所选 session 最近上下文；超大 session 自动截取；不写回原 session', url: '' },
     { id: 'searxng', label: 'SearXNG', short: 'S', color: '#f0b429',
       hint: '本地元搜索 · 直接带关键词', url: 'https://192.168.0.102:18102/' },
 ];
@@ -35,6 +35,7 @@ const state = {
     busy: false,
     answer: '',
     answerError: '',
+    answerNote: '',
     piSeconds: 0,
     timer: null,
     toast: '',
@@ -73,9 +74,10 @@ function toast(text, bad = false) {
     }
 }
 
-function setAnswer(text, error = '') {
+function setAnswer(text, error = '', note = '') {
     state.answer = text || '';
     state.answerError = error || '';
+    state.answerNote = note || '';
     const box = document.getElementById('akAnswer');
     if (!box) return;
     box.hidden = !state.answer && !state.answerError;
@@ -89,6 +91,11 @@ function setAnswer(text, error = '') {
         err.textContent = state.answerError;
         err.hidden = !state.answerError;
     }
+    const noteEl = box.querySelector('.ak-answer-note');
+    if (noteEl) {
+        noteEl.textContent = state.answerNote;
+        noteEl.hidden = !state.answerNote;
+    }
 }
 
 function answerHtml() {
@@ -97,6 +104,7 @@ function answerHtml() {
             <span><i class="ak-dot"></i> PI ANSWER</span>
             <button class="ak-mini" type="button" data-ak="copy-answer">复制</button>
         </div>
+        <div class="ak-answer-note"></div>
         <pre class="ak-answer-text"></pre>
         <div class="ak-answer-error"></div>
     </section>`;
@@ -127,7 +135,7 @@ function piPanelHtml() {
             ${options}
         </select>
         <button class="ak-mini" type="button" data-ak="reload-pi" ${state.piLoading ? 'disabled' : ''}>刷新</button>
-        <span class="ak-pi-hint">只读副本 · 不写回原 session</span>
+        <span class="ak-pi-hint">只读副本 · 超大 session 自动截取</span>
     </div>`;
 }
 
@@ -175,7 +183,7 @@ function appHtml() {
             <aside class="ak-side">
                 <div class="ak-side-head"><span>最近问题</span><button type="button" class="ak-mini" data-ak="reload-history">刷新</button></div>
                 <div class="ak-history" id="akHistory">${historyHtml()}</div>
-                <div class="ak-side-note">本地 Pi 只取所选 session 的上下文回答；外部引擎会把问题带进官网或复制到剪贴板。</div>
+                <div class="ak-side-note">本地 Pi 读取所选 session 的最近上下文；超过模型窗口时自动截取，不写回原 session。外部引擎会把问题带进官网或复制到剪贴板。</div>
             </aside>
         </div>
     </div>`;
@@ -208,6 +216,7 @@ function setEngine(id) {
     saveKey(HISTORY_KEY, id);
     state.answer = '';
     state.answerError = '';
+    state.answerNote = '';
     setAnswer('', '');
     document.querySelectorAll('.ak-engine').forEach(el => {
         const on = el.dataset.engine === id;
@@ -353,7 +362,11 @@ async function submit() {
             });
             clearInterval(state.timer);
             state.timer = null;
-            setAnswer(data.answer || '', data.error || '');
+            setAnswer(
+                data.answer || '',
+                data.error || '',
+                data.compacted ? '所选 session 较大，已自动截取最近上下文后继续回答（不回写原 session）。' : '',
+            );
             if (!data.error) toast('Pi 已回答，已记录。');
         } catch (e) {
             setAnswer('', e.message || 'Pi 回答失败');

@@ -10,8 +10,9 @@
 
 import { Router } from 'express';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, open, readdir, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import db, { checkpoint } from '../db.js';
@@ -24,6 +25,8 @@ const MAX_QUESTION = 4000;
 const MAX_ANSWER = 20000;
 const PI_TIMEOUT_MS = 120_000;
 const PI_MAX_OUTPUT = 8 * 1024 * 1024;
+const PI_COMPACT_BYTES = 2 * 1024 * 1024;
+const PI_COMPACT_CHARS = 500_000;
 const PI_AGENT_DIR = process.env.PI_AGENT_DIR || path.join(homedir(), '.pi', 'agent');
 const PI_SESSION_ROOT = process.env.PI_SESSION_DIR
   || path.join(PI_AGENT_DIR, 'sessions');
@@ -121,6 +124,92 @@ async function findPiSession(id) {
     } catch { /* ignore */ }
   }
   return null;
+}
+
+function piMessageText(message) {
+  const content = message?.content;
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter(block => block && block.type === 'text')
+    .map(block => String(block.text || ''))
+    .join('\n')
+    .trim();
+}
+
+// 大 session 会超过模型上下文窗口。复制时只保留最近的 system/user/assistant
+// 文本，丢掉工具结果和 thinking；回答仍然基于所选 session 的最近对话。
+async function copyPiSession(source, dest, cwd) {
+  const info = await stat(source);
+  if (info.size <= PI_COMPACT_BYTES) {
+    await copyFile(source, dest);
+    return false;
+  }
+
+  const raw = await readFile(source, 'utf8');
+  let modelChange = null;
+  let thinkingChange = null;
+  const messages = [];
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    let item;
+    try { item = JSON.parse(line); } catch { continue; }
+    if (item.type === 'model_change' && !modelChange) modelChange = item;
+    else if (item.type === 'thinking_level_change' && !thinkingChange) thinkingChange = item;
+    else if (item.type === 'message') {
+      const message = item.message || {};
+      if (!['system', 'user', 'assistant'].includes(message.role)) continue;
+      const text = piMessageText(message);
+      if (text) messages.push({ role: message.role, text });
+    }
+  }
+
+  const selected = [];
+  let chars = 0;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (selected.length && chars + message.text.length > PI_COMPACT_CHARS) break;
+    selected.push(message);
+    chars += message.text.length;
+  }
+  selected.reverse();
+  if (!selected.length) throw new Error('session 没有可用的文本上下文');
+
+  const out = [{
+    type: 'session', version: 3, id: randomUUID(), timestamp: nowIso(), cwd: cwd || process.cwd(),
+  }];
+  if (modelChange) out.push({ ...modelChange, id: randomUUID().slice(0, 8), parentId: null });
+  if (thinkingChange) out.push({ ...thinkingChange, id: randomUUID().slice(0, 8), parentId: null });
+
+  let parentId = null;
+  for (const message of selected) {
+    const id = randomUUID().slice(0, 8);
+    out.push({
+      type: 'message', id, parentId, timestamp: nowIso(),
+      message: { role: message.role, content: [{ type: 'text', text: message.text }] },
+    });
+    parentId = id;
+  }
+  await writeFile(dest, out.map(item => JSON.stringify(item)).join('\n') + '\n', 'utf8');
+  return true;
+}
+
+function parsePiAnswer(stdout) {
+  let answer = '';
+  let error = '';
+  for (const line of String(stdout || '').split('\n')) {
+    if (!line.trim()) continue;
+    let item;
+    try { item = JSON.parse(line); } catch { continue; }
+    if (item.type === 'message_end' && item.message?.role === 'assistant') {
+      const text = piMessageText(item.message);
+      if (text) answer = text;
+      if (item.message.errorMessage) error = String(item.message.errorMessage);
+    } else if (item.type === 'compaction_end' && item.errorMessage) {
+      error = String(item.errorMessage);
+    }
+  }
+  return { answer: answer.trim(), error };
 }
 
 function runPi(args, options) {
@@ -224,34 +313,42 @@ router.post('/api/ask/pi', asyncRoute(async (req, res) => {
     dir = await mkdtemp(path.join(tmpdir(), 'zd-ask-pi-'));
     const copied = path.join(dir, 'session.jsonl');
     // systemd 的 ProtectHome=read-only 会让 Pi 写 ~/.pi 失败；配置复制到临时目录，
-    // 只读 auth/models/settings，回答仍只读取 session 副本。
+    // 只复制凭据/模型配置，不复制 settings.json/mcp.json。
+    // settings 里的 npm 扩展（如 billion-context-pi）会被 Pi 尝试重新安装；
+    // 生产 ProtectHome=read-only 时 npm cache 不可写，会导致整个 Ask 失败。
     const agentDir = path.join(dir, 'agent');
     await mkdir(agentDir, { recursive: true });
-    for (const name of ['auth.json', 'models.json', 'models-store.json', 'settings.json', 'mcp.json']) {
+    for (const name of ['auth.json', 'models.json', 'models-store.json']) {
       await copyFile(path.join(PI_AGENT_DIR, name), path.join(agentDir, name)).catch(() => {});
     }
     const info = await stat(session.file);
     if (info.size > 50 * 1024 * 1024) return res.status(413).json({ error: 'session 文件过大' });
-    await copyFile(session.file, copied);
+    const compacted = await copyPiSession(session.file, copied, session.cwd);
 
     const args = [
       '--session', copied,
       '--no-tools', '--no-mcp', '--no-extensions', '--no-context-files',
-      '--print', '--', parsed.value,
+      '--mode', 'json', '--print', '--', parsed.value,
     ];
     const { stdout, stderr } = await runPi(args, {
       cwd: session.cwd && session.cwd.startsWith('/') ? session.cwd : process.cwd(),
       env: { ...process.env, PI_ASK: '1', PI_CODING_AGENT_DIR: agentDir },
     });
-    const answer = String(stdout || '').trim().slice(0, MAX_ANSWER);
+    const parsedAnswer = parsePiAnswer(stdout);
+    const answer = parsedAnswer.answer.slice(0, MAX_ANSWER);
     if (!answer) {
-      console.error('[ask/pi] empty answer', String(stderr || '').slice(0, 1000));
-      return res.status(502).json({ error: 'Pi 没有返回内容' });
+      console.error('[ask/pi] empty answer', parsedAnswer.error || String(stderr || '').slice(0, 1000));
+      const contextLimit = /context|maximum|token/i.test(parsedAnswer.error);
+      return res.status(502).json({
+        error: parsedAnswer.error
+          ? (contextLimit ? 'Pi 回答失败：session 超出模型上下文' : 'Pi 回答失败')
+          : 'Pi 没有返回内容',
+      });
     }
     db.prepare('UPDATE ask_question SET answer = ?, session_id = ? WHERE id = ?')
       .run(answer, sessionId, questionId);
     checkpoint();
-    res.json({ answer, questionId });
+    res.json({ answer, questionId, compacted });
   } catch (err) {
     const timeout = err?.killed || err?.signal === 'SIGTERM';
     console.error('[ask/pi]', err?.message || err, String(err?.stderr || '').slice(0, 2000));
