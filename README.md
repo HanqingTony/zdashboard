@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.9.2** · [v0.9.2 更新记录](docs/v0.9.2.md) · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.9.3** · [v0.9.3 更新记录](docs/v0.9.3.md) · [v0.9.2 更新记录](docs/v0.9.2.md) · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -308,7 +308,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 npm install
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node:test（内存库，不碰生产数据；45 个用例）
+npm test           # node:test（内存库，不碰生产数据；47 个用例）
 npm run backup     # SQLite 在线备份
 npm run archive-legacy            # 只归档历史表（zInfra/zObjects/zproject）
 npm run archive-legacy -- --drop  # 归档后从主库删除

@@ -2,11 +2,12 @@
 Description=Watch zdashboard managed project nginx desired state
 
 [Path]
+# 只监听变化。不要加 PathExists=：文件一直存在会让 path unit 在服务退出后
+# 反复满足条件，形成 self-trigger 循环。
 PathChanged=/home/tony/zdata/zdashboard/pm-nginx.conf
-PathExists=/home/tony/zdata/zdashboard/pm-nginx.conf
 Unit=zdashboard-nginx-apply.service
-TriggerLimitIntervalSec=0
-TriggerLimitBurst=0
+TriggerLimitIntervalSec=30
+TriggerLimitBurst=10
 
 [Install]
 WantedBy=paths.target

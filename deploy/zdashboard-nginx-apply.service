@@ -1,8 +1,8 @@
 [Unit]
 Description=Apply zdashboard managed project nginx config
 After=network.target
-StartLimitIntervalSec=0
-StartLimitBurst=0
+StartLimitIntervalSec=30
+StartLimitBurst=10
 
 [Service]
 Type=oneshot

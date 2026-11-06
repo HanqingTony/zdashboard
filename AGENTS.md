@@ -10,7 +10,7 @@
 ```bash
 npm start          # node server.js
 npm run dev        # node --env-file-if-exists=.env --watch server.js
-npm test           # node --test（45 用例，内存库）
+npm test           # node --test（47 用例，内存库）
 npm run backup     # SQLite 在线备份（db.backup + 保留 N 份）
 npm run archive-legacy -- --drop   # 历史表归档后删除（默认只归档）
 ```
@@ -191,6 +191,8 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 - 生产 unit 从 `deploy/zdashboard.service` 安装；含 `ProtectHome=read-only` + `ReadWritePaths=/home/tony/zdata /home/tony/zrepo`，git 调用统一 `GIT_OPTIONAL_LOCKS=0`
 - 远端创建：`npm run remotes:create -- <name> --private --repo <path> --push`；PM 新建双远端时自动调用同一套逻辑
 - PM nginx：root 单元 `zdashboard-nginx-apply.path/.service`（脚本 `/usr/local/sbin/zdashboard-nginx-apply`）
+  - path 单元只能用 `PathChanged=`；**禁止 `PathExists=`**（文件一直存在会让 oneshot 退出后立即再次触发，形成 120ms 自循环）
+  - `TriggerLimitIntervalSec=30` / `TriggerLimitBurst=10`，service `StartLimitIntervalSec=30` / `StartLimitBurst=10`
 - 端口规范：PM 新项目走 12710+/18130+；不要复用 12700-12703 / 18100-18120 的已占用段
   - `PORT=28100`、`DB_PATH=/home/tony/zdata/zdb.db`、`CHECKPOINT=throttle`
   - ExecStart 用 pnpm 的 node（系统 node 的 ABI 可能与已编译 better-sqlite3 不符）
