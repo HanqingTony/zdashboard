@@ -1,6 +1,6 @@
 # zdashboard
 
-> **当前版本：v0.9.3** · [v0.9.3 更新记录](docs/v0.9.3.md) · [v0.9.2 更新记录](docs/v0.9.2.md) · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
+> **当前版本：v0.10.0** · [v0.10.0 更新记录](docs/v0.10.0.md) · [v0.9.3 更新记录](docs/v0.9.3.md) · [v0.9.2 更新记录](docs/v0.9.2.md) · [v0.9.1 更新记录](docs/v0.9.1.md) · [v0.9.0 更新记录](docs/v0.9.0.md) · [v0.8.0 更新记录](docs/v0.8.0.md) · [v0.7.1 更新记录](docs/v0.7.1.md) · [v0.7.0 更新记录](docs/v0.7.0.md) · [v0.6.0 更新记录](docs/v0.6.0.md) · [v0.5.1 更新记录](docs/v0.5.1.md) · [v0.5.0 更新记录](docs/v0.5.0.md) · [v0.4.6 更新记录](docs/v0.4.6.md) · [v0.4.5 更新记录](docs/v0.4.5.md) · [v0.4.4 更新记录](docs/v0.4.4.md) · [v0.4.3 更新记录](docs/v0.4.3.md) · [v0.4.2 更新记录](docs/v0.4.2.md) · [v0.4.1 更新记录](docs/v0.4.1.md) · [v0.4.0 更新记录](docs/v0.4.0.md) · [v0.3.0 更新记录](docs/v0.3.0.md) · [v0.2.2 更新记录](docs/v0.2.2.md) · [v0.2.1 更新记录](docs/v0.2.1.md) · [v0.2.0 更新记录](docs/v0.2.0.md) · [路线图](docs/ROADMAP.md) · 历史版本：[v0.1.7](docs/v0.1.7.md) · [v0.1.6](docs/v0.1.6.md) · [v0.1.5](docs/v0.1.5.md) · [v0.1.4](docs/v0.1.4.md) · [v0.1.3](docs/v0.1.3.md) · [v0.1.2](docs/v0.1.2.md) · [v0.1.1](docs/v0.1.1.md) · [v0.1.0](docs/v0.1.0.md)
 
 个人多功能仪表盘：深色主题、横竖屏自适应、**无构建步骤**的单页前端（`public/app.js` 为 ES module，`public/tokenize.js` 前后端共用）。
 
@@ -13,6 +13,8 @@
 - **内容全部在 `public/nav.json`**：标题/分组/卡片/底部说明；增删服务只改 JSON
 - 卡片字段：`name` / `url` / `desc` / `port`（对外入口 181xx）/ `upstream`（回环上游 28xxx）/ `tags`
 - 渲染：`renderNavApp()`；样式：`style.css` 的「服务导航（黄页）模块」段
+- **运行指示灯**：`/api/nav` 为每条补 `running` / `probePort`；绿色=端口在监听，暗红=未监听；上游优先探 `upstream`，没有则探 `port`；`ss` 结果缓存 5 秒
+- 指示灯同时出现在主页卡片和左上侧栏；只代表 TCP 监听，不是 HTTP 健康检查
 - 端口规范见 zpa 仓库 `PORTS.md`；新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
 
 ### Ask 咨询入口
@@ -153,7 +155,7 @@ v0.2.0 按 `docs/DESIGN.md` 的决议删除：路由、WebSocket、前端播放�
 | POST | `/api/pm/apply` | 重新写 nginx 期望状态（写保护） |
 | POST | `/api/pm/scan` | 扫描并补建条目：`?what=repos\|ports\|all`（写保护） |
 | POST | `/api/pm/sync` | 刷新 git 派生字段（写保护） |
-| GET | `/api/nav` | 黄页 + 托管项目（主页用） |
+| GET | `/api/nav` | 黄页 + 托管项目 + `running` 运行状态（主页/侧栏用） |
 | GET | `/api/roadmap` | 路线图全量节点 + 连线 + 统计 |
 | POST | `/api/roadmap/nodes` | 新建节点（`parentIds` 可空、可多个） |
 | PATCH | `/api/roadmap/nodes/:id` | 编辑节点/状态/日期/分类，替换上级关系 |

@@ -33,6 +33,33 @@ const idOf = (v) => {
 
 const bool = v => v ? 1 : 0;
 
+// /api/nav 的运行状态探针：只缓存端口集合，避免每次刷新都跑 ss。
+const NAV_PROBE_TTL_MS = 5000;
+let navProbe = { at: 0, ports: new Set() };
+
+function navProbePort(item) {
+  const upstream = String(item?.upstream ?? '').trim();
+  if (/^\d{1,5}$/.test(upstream)) return Number(upstream);
+  const port = String(item?.port ?? '').trim();
+  return /^\d{1,5}$/.test(port) ? Number(port) : null;
+}
+
+async function navListeningPorts() {
+  if (Date.now() - navProbe.at < NAV_PROBE_TTL_MS) return navProbe.ports;
+  const ports = await listeningPorts();
+  navProbe = { at: Date.now(), ports };
+  return ports;
+}
+
+function withRunning(item, ports) {
+  const probePort = navProbePort(item);
+  return {
+    ...item,
+    probePort,
+    running: probePort == null ? null : ports.has(probePort),
+  };
+}
+
 function enrich(p, listening, active) {
   const mappedUp = p.external_port != null ? active.get(p.external_port) : null;
   let nginxState = 'off';
@@ -314,19 +341,24 @@ function readStaticNav() {
   return { ...navCache.data, groups: [...(navCache.data.groups || [])] };
 }
 
-router.get('/api/nav', (req, res, next) => {
+router.get('/api/nav', async (req, res, next) => {
   try {
     const nav = readStaticNav();
+    const ports = await navListeningPorts();
     const managed = store.list()
       .filter(p => p.nginx_enabled && p.web_enabled && p.external_port)
-      .map(p => ({
+      .map(p => withRunning({
         name: p.name,
         url: navUrl(p),
         desc: `项目管理器 · 127.0.0.1:${p.upstream_port}${p.repo_path ? ' · ' + p.repo_path : ''}`,
         port: String(p.external_port),
         upstream: p.upstream_port != null ? String(p.upstream_port) : '',
         tags: ['managed'],
-      }));
+      }, ports));
+    nav.groups = (nav.groups || []).map(g => ({
+      ...g,
+      items: (g.items || []).map(it => withRunning(it, ports)),
+    }));
     if (managed.length) {
       nav.groups = [{ name: '我的项目', note: '由 zdashboard 项目管理器托管', items: managed }, ...nav.groups];
     }

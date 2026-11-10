@@ -133,16 +133,22 @@ function flattenNav(data) {
 function navSidebarRowHtml(it) {
     const fav = navFavorites.has(it.key);
     const port = it.port ? `<span class="nv-p">${escHtml(it.port)}</span>` : '';
+    const state = it.running == null ? '' : (it.running ? '运行中' : '未监听');
+    const dot = it.running == null
+        ? ''
+        : `<span class="nv-dot ${it.running ? 'up' : 'down'}" title="${state}${it.probePort ? ` · ${it.probePort}` : ''}"></span>`;
     const title = [
         it.name,
         it.desc,
         it.group,
         it.port ? `:${it.port}` : '',
         it.upstream ? `↳${it.upstream}` : '',
+        state,
     ].filter(Boolean).join(' · ');
     return `<div class="nv${fav ? ' fav' : ''}">
         <a class="nv-link" href="${escHtml(safeUrl(it.url))}" target="_blank" rel="noopener" title="${escHtml(title)}">
             <span class="nv-i">${escHtml(navInitial(it))}</span>
+            ${dot}
             <span class="nv-n">${escHtml(it.name || it.url || '未命名')}</span>
             ${port}
         </a>

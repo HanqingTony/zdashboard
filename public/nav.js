@@ -21,8 +21,11 @@ function navItemHtml(it) {
     const ports = (it.port || it.upstream)
         ? `<span class="ni-ports">${it.port ? `<b>${escHtml(it.port)}</b>` : ''}${it.upstream ? `<i>\u21b3${escHtml(it.upstream)}</i>` : ''}</span>`
         : '';
+    const dot = it.running == null
+        ? ''
+        : `<span class="ni-dot ${it.running ? 'up' : 'down'}" title="${it.running ? '运行中' : '未监听'}${it.probePort ? ` · ${it.probePort}` : ''}" aria-label="${it.running ? '运行中' : '未监听'}"></span>`;
     return `<a class="ni" href="${escHtml(safeUrl(it.url))}" target="_blank" rel="noopener">
-        <span class="ni-top"><span class="ni-name">${escHtml(it.name || '')}${tags}</span>${ports}</span>
+        <span class="ni-top"><span class="ni-name">${dot}${escHtml(it.name || '')}${tags}</span>${ports}</span>
         <span class="ni-desc">${escHtml(it.desc || '')}</span>
         <span class="ni-url">${escHtml(shown)}</span>
     </a>`;

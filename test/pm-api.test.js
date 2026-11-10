@@ -39,6 +39,10 @@ test('端口条目（无仓库）+ nav + 开关 + 删除（无 PM 口令）', as
   const nav = await (await json('/api/nav')).json();
   assert.equal(nav.groups[0].name, '我的项目');
   assert.equal(nav.groups[0].items[0].port, String(created.project.external_port));
+  assert.equal(nav.groups[0].items[0].probePort, created.project.upstream_port);
+  assert.equal(typeof nav.groups[0].items[0].running, 'boolean');
+  const staticItem = nav.groups.find(g => g.name !== '我的项目').items[0];
+  assert.equal(typeof staticItem.running, 'boolean');
 
   const id = created.project.id;
   const off = await (await json(`/api/pm/${id}`, {

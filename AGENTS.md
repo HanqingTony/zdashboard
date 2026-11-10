@@ -161,8 +161,10 @@ Config 在 `src/config.js`，**没有 config.json**（README 旧版写错，已�
 
 ## 服务导航（黄页）
 - 数据源：`public/nav.json`（静态文件）——**改导航只改这个 JSON**
-- 渲染：`public/app.js` 的 `renderNavApp()`；默认落地应用 `switchApp('nav')`
+- 渲染：`public/nav.js` 的 `renderNavApp()`；默认落地应用 `switchApp('nav')`
 - 卡片端口：`port`（对外 181xx）/ `upstream`（回环 28xxx）
+- 运行状态：`GET /api/nav` 为每条补 `running` / `probePort`；纯数字 upstream 优先，否则 port；`ss` 端口集合缓存 5 秒
+- 指示灯：主页 `.ni-dot`、侧栏 `.nv-dot`；绿=监听，暗红=未监听；只代表 TCP 监听，不是 HTTP 健康检查
 - 新增服务三处同步：nginx conf / `nav.json` / anm facts「nginx」
 
 ## Frontend Quirks
