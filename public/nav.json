@@ -7,13 +7,6 @@
       "note": "181xx = 唯一入口（nginx TLS）→ 28xxx 回环上游",
       "items": [
         {
-          "name": "zDashboard",
-          "url": "https://192.168.0.102:18100/",
-          "desc": "本页 · 服务导航 + 信息聚合 + 项目管理器 + Vocab",
-          "port": "18100",
-          "upstream": "28100"
-        },
-        {
           "name": "dsh web",
           "url": "https://192.168.0.102:18110/",
           "desc": "DeepSeek Harness 工作台",
@@ -22,13 +15,6 @@
           "tags": [
             "遗留 3080/3081"
           ]
-        },
-        {
-          "name": "MinIO 控制台",
-          "url": "https://192.168.0.102:18101/",
-          "desc": "对象存储管理台（S3 API 仍在 :9000）",
-          "port": "18101",
-          "upstream": "28101"
         },
         {
           "name": "searxng",
@@ -59,15 +45,6 @@
           "tags": [
             "例外 3：端口固定 8080，勿迁 181xx/281xx"
           ]
-        },
-        {
-          "name": "alooplayer",
-          "url": "http://192.168.0.102:18190/",
-          "desc": "独立 nginx 静态站（明文，待规范）",
-          "port": "18190",
-          "tags": [
-            "无 TLS"
-          ]
         }
       ]
     },
@@ -76,25 +53,11 @@
       "note": "127xx · 非浏览器/给本机进程与隧道用",
       "items": [
         {
-          "name": "dsh a2a",
-          "url": "https://127.0.0.1:12700/",
-          "desc": "A2A 端点",
-          "port": "12700",
-          "upstream": "41241"
-        },
-        {
           "name": "cloudflared 指标",
           "url": "https://127.0.0.1:12702/metrics",
           "desc": "隧道指标",
           "port": "12702",
           "upstream": "20241"
-        },
-        {
-          "name": "avocal MCP 隧道",
-          "url": "https://127.0.0.1:12703/",
-          "desc": "ssh -L → 101:18200",
-          "port": "12703",
-          "upstream": "101:18200"
         }
       ]
     }
